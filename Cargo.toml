@@ -1,0 +1,8 @@
+[package]
+name = "rvariant"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1", features = ["derive"], optional = true }
+rkyv = { version = "0.7.42", features = ["validation", "strict"], optional = true }
