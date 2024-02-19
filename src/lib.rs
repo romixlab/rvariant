@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter};
 
-#[derive(Clone, Debug, PartialEq, Eq, Default, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "rkyv",
@@ -11,9 +11,6 @@ use std::fmt::{Display, Formatter};
 // #[strum_discriminants(derive(Serialize, Deserialize))]
 // #[strum_discriminants(name(Ty))]
 pub enum Variant {
-    // For cells that logically cannot have values, e.g. different entity without particular property
-    Never,
-    #[default]
     Empty,
     Bool(bool),
     Str(String),
@@ -50,7 +47,6 @@ pub enum Variant {
 #[cfg_attr(feature = "rkyv", archive(check_bytes))]
 #[cfg_attr(feature = "rkyv", archive_attr(derive(Debug)))]
 pub enum VariantTy {
-    Never,
     Empty,
     Bool,
     Str,
@@ -69,7 +65,6 @@ pub enum VariantTy {
 impl From<&Variant> for VariantTy {
     fn from(value: &Variant) -> Self {
         match value {
-            Variant::Never => VariantTy::Never,
             Variant::Empty => VariantTy::Empty,
             Variant::Bool(_) => VariantTy::Bool,
             Variant::Str(_) => VariantTy::Str,
@@ -91,7 +86,6 @@ impl From<&Variant> for VariantTy {
 
 pub enum Error {
     ParseIntError(std::num::ParseIntError),
-    NeverCast,
     WrongEnumVariantName,
     ParseBoolError,
     Unimplemented,
@@ -100,7 +94,6 @@ pub enum Error {
 impl Variant {
     pub fn try_from_str<S: AsRef<str>>(value: S, to: VariantTy) -> Result<Self, Error> {
         match to {
-            VariantTy::Never => Err(Error::NeverCast),
             VariantTy::Empty => Ok(Variant::Empty),
             VariantTy::Bool => {
                 let b = value.as_ref().to_lowercase();
@@ -164,19 +157,14 @@ impl Variant {
 
     pub fn from_str<S: AsRef<str>>(value: S, to: VariantTy) -> Self {
         let value = value.as_ref();
-        if value.is_empty() {
-            Variant::Empty
-        } else {
-            match Self::try_from_str(value, to) {
-                Ok(value) => value,
-                Err(_) => Variant::Str(value.to_string()),
-            }
+        match Self::try_from_str(value, to) {
+            Ok(value) => value,
+            Err(_) => Variant::Str(value.to_string()),
         }
     }
 
     pub fn is_empty(&self) -> bool {
         match self {
-            Variant::Never => true,
             Variant::Empty => true,
             Variant::Bool(_) => false,
             Variant::Str(s) => s.is_empty(),
@@ -237,7 +225,6 @@ impl TryInto<Vec<String>> for &Variant {
 impl Display for VariantTy {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            VariantTy::Never => write!(f, "Never"),
             VariantTy::Empty => write!(f, "Empty"),
             VariantTy::Bool => write!(f, "Bool"),
             VariantTy::Str => write!(f, "String"),
@@ -262,7 +249,6 @@ impl Display for VariantTy {
 impl Display for Variant {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Variant::Never => write!(f, "Never"),
             Variant::Empty => write!(f, "Empty"),
             Variant::Bool(b) => write!(f, "{b}"),
             Variant::Str(s) => write!(f, "{s}"),
