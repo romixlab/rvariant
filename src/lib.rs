@@ -84,11 +84,13 @@ impl From<&Variant> for VariantTy {
     }
 }
 
+#[derive(Debug)]
 pub enum Error {
     ParseIntError(std::num::ParseIntError),
     WrongEnumVariantName,
     ParseBoolError,
     Unimplemented,
+    CannotConvert(VariantTy, VariantTy),
 }
 
 impl Variant {
@@ -181,16 +183,52 @@ impl Variant {
         }
     }
 
-    //
-    // pub fn try_into(&self, ty: Ty) -> Option<Value> {
-    //     match ty {
-    //         Ty::Str => match self {
-    //             Value::Str(s) => Some(Value::Str(s.clone())),
-    //             other => Some(Value::Str(format!("{}", other)))
-    //         }
-    //         _ => unimplemented!()
-    //     }
-    // }
+    pub fn convert_to(self, ty: VariantTy) -> Result<Variant, Error> {
+        if VariantTy::from(&self) == ty {
+            return Ok(self);
+        }
+        match ty {
+            VariantTy::Empty => Ok(Variant::Empty),
+            VariantTy::Str => match self {
+                Variant::Str(s) => Ok(Variant::Str(s)),
+                o => Ok(Variant::Str(format!("{}", o))),
+            },
+            VariantTy::Bool => match self {
+                Variant::Bool(b) => Ok(Variant::Bool(b)),
+                Variant::Str(s) => Variant::try_from_str(s, ty),
+                o => Err(Error::CannotConvert(VariantTy::from(&o), ty)),
+            },
+            VariantTy::StrList => match self {
+                Variant::StrList(l) => Ok(Variant::StrList(l)),
+                Variant::Str(s) => Variant::try_from_str(s, ty),
+                o => Err(Error::CannotConvert(VariantTy::from(&o), ty)),
+            },
+            VariantTy::I32 => match self {
+                Variant::I32(x) => Ok(Variant::I32(x)),
+                Variant::Str(s) => Variant::try_from_str(s, ty),
+                o => Err(Error::CannotConvert(VariantTy::from(&o), ty)),
+            },
+            VariantTy::I64 => match self {
+                Variant::I64(x) => Ok(Variant::I64(x)),
+                Variant::Str(s) => Variant::try_from_str(s, ty),
+                o => Err(Error::CannotConvert(VariantTy::from(&o), ty)),
+            },
+            VariantTy::U32 => match self {
+                Variant::U32(x) => Ok(Variant::U32(x)),
+                Variant::Str(s) => Variant::try_from_str(s, ty),
+                o => Err(Error::CannotConvert(VariantTy::from(&o), ty)),
+            },
+            VariantTy::U64 => match self {
+                Variant::U64(x) => Ok(Variant::U64(x)),
+                Variant::Str(s) => Variant::try_from_str(s, ty),
+                o => Err(Error::CannotConvert(VariantTy::from(&o), ty)),
+            },
+            VariantTy::Binary => Err(Error::Unimplemented),
+
+            #[cfg(not(feature = "rkyv"))]
+            VariantTy::List => Err(Error::Unimplemented),
+        }
+    }
 }
 
 impl TryInto<u32> for &Variant {
