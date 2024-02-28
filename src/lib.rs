@@ -1,4 +1,6 @@
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+use std::sync::OnceLock;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -19,10 +21,10 @@ pub enum Variant {
     I64(i64),
     U32(u32),
     U64(u64),
-    // Enum {
-    //     enum_uid: u32,
-    //     discriminant: u32,
-    // },
+    Enum {
+        enum_uid: u32,
+        discriminant: u32,
+    },
     Binary(Vec<u8>),
 
     #[cfg(not(feature = "rkyv"))]
@@ -55,11 +57,21 @@ pub enum VariantTy {
     I64,
     U32,
     U64,
-    // Enum { enum_uid: u32 },
+    Enum {
+        enum_uid: u32,
+    },
     Binary,
 
     #[cfg(not(feature = "rkyv"))]
     List,
+}
+
+static KNOWN_ENUMS: OnceLock<HashMap<u32, EnumDefinition>> = OnceLock::new();
+
+#[derive(Debug)]
+pub struct EnumDefinition {
+    pub name: String,
+    pub values: Vec<(u32, String)>,
 }
 
 impl From<&Variant> for VariantTy {
@@ -73,9 +85,9 @@ impl From<&Variant> for VariantTy {
             Variant::I64(_) => VariantTy::I64,
             Variant::U32(_) => VariantTy::U32,
             Variant::U64(_) => VariantTy::U64,
-            // Value::Enum { enum_uid, .. } => Ty::Enum {
-            //     enum_uid: *enum_uid,
-            // },
+            Variant::Enum { enum_uid, .. } => VariantTy::Enum {
+                enum_uid: *enum_uid,
+            },
             Variant::Binary(_) => VariantTy::Binary,
 
             #[cfg(not(feature = "rkyv"))]
@@ -144,12 +156,12 @@ impl Variant {
                     .filter(|s| !s.is_empty())
                     .collect(),
             )),
-            // Ty::Enum { enum_uid } => enum_value::variant_name_to_discriminant(enum_uid, value)
-            //     .map(|d| Value::Enum {
-            //         enum_uid,
-            //         discriminant: d,
-            //     })
-            //     .ok_or(Error::WrongEnumVariantName),
+            VariantTy::Enum { enum_uid } => variant_name_to_discriminant(enum_uid, value)
+                .map(|d| Variant::Enum {
+                    enum_uid,
+                    discriminant: d,
+                })
+                .ok_or(Error::WrongEnumVariantName),
             VariantTy::Binary => Err(Error::Unimplemented),
 
             #[cfg(not(feature = "rkyv"))]
@@ -175,7 +187,7 @@ impl Variant {
             Variant::I64(_) => false,
             Variant::U32(_) => false,
             Variant::U64(_) => false,
-            // Value::Enum { .. } => false,
+            Variant::Enum { .. } => false,
             Variant::Binary(b) => b.is_empty(),
 
             #[cfg(not(feature = "rkyv"))]
@@ -220,6 +232,26 @@ impl Variant {
             },
             VariantTy::U64 => match self {
                 Variant::U64(x) => Ok(Variant::U64(x)),
+                Variant::Str(s) => Variant::try_from_str(s, ty),
+                o => Err(Error::CannotConvert(VariantTy::from(&o), ty)),
+            },
+            VariantTy::Enum { enum_uid: to_uid } => match self {
+                Variant::Enum {
+                    enum_uid,
+                    discriminant,
+                } => {
+                    if enum_uid == to_uid {
+                        Ok(Variant::Enum {
+                            enum_uid,
+                            discriminant,
+                        })
+                    } else {
+                        Err(Error::CannotConvert(
+                            VariantTy::Enum { enum_uid },
+                            VariantTy::Enum { enum_uid: to_uid },
+                        ))
+                    }
+                }
                 Variant::Str(s) => Variant::try_from_str(s, ty),
                 o => Err(Error::CannotConvert(VariantTy::from(&o), ty)),
             },
@@ -271,11 +303,11 @@ impl Display for VariantTy {
             VariantTy::I64 => write!(f, "i64"),
             VariantTy::U32 => write!(f, "u32"),
             VariantTy::U64 => write!(f, "u64"),
-            // Ty::Enum { enum_uid } => write!(
-            //     f,
-            //     "enum {}",
-            //     enum_value::uid_to_enum_name(*enum_uid).unwrap_or("Undefined")
-            // ),
+            VariantTy::Enum { enum_uid } => write!(
+                f,
+                "enum {}",
+                uid_to_enum_name(*enum_uid).unwrap_or("Undefined")
+            ),
             VariantTy::Binary => write!(f, "Binary"),
 
             #[cfg(not(feature = "rkyv"))]
@@ -307,13 +339,13 @@ impl Display for Variant {
                 }
                 Ok(())
             }
-            // Value::Enum {
-            //     enum_uid,
-            //     discriminant,
-            // } => match enum_value::uid_to_variant_name(*enum_uid, *discriminant) {
-            //     Some(variant_name) => write!(f, "{variant_name}"),
-            //     None => write!(f, "Unknown enum {}", enum_uid),
-            // },
+            Variant::Enum {
+                enum_uid,
+                discriminant,
+            } => match uid_to_variant_name(*enum_uid, *discriminant) {
+                Some(variant_name) => write!(f, "{variant_name}"),
+                None => write!(f, "Unknown enum {}", enum_uid),
+            },
             Variant::Binary(b) => write!(f, "Binary[{}B]", b.len()),
 
             #[cfg(not(feature = "rkyv"))]
@@ -330,4 +362,57 @@ impl Display for Variant {
             Variant::I32(x) => write!(f, "{x}"),
         }
     }
+}
+
+pub fn register_enums(defs: HashMap<u32, EnumDefinition>) {
+    KNOWN_ENUMS.set(defs).unwrap();
+}
+
+pub fn name_to_uid<S: AsRef<str>>(name: S) -> Option<u32> {
+    let known_enums = KNOWN_ENUMS.get()?;
+    let name = name.as_ref();
+    known_enums
+        .iter()
+        .find(|&(_, def)| def.name == name)
+        .map(|(id, _)| *id)
+}
+
+pub fn uid_to_full_name(enum_uid: u32, discriminant: u32) -> Option<(&'static str, &'static str)> {
+    let known_enums = KNOWN_ENUMS.get()?;
+    known_enums.get(&enum_uid).and_then(|def| {
+        def.values
+            .iter()
+            .find(|(id, _)| *id == discriminant)
+            .map(|(_, variant_name)| (def.name.as_str(), variant_name.as_str()))
+    })
+}
+
+pub fn uid_to_variant_name(enum_uid: u32, discriminant: u32) -> Option<&'static str> {
+    let known_enums = KNOWN_ENUMS.get()?;
+    known_enums.get(&enum_uid).and_then(|def| {
+        def.values
+            .iter()
+            .find(|(id, _)| *id == discriminant)
+            .map(|(_, variant_name)| variant_name.as_str())
+    })
+}
+
+pub fn variant_name_to_discriminant<S: AsRef<str>>(enum_uid: u32, variant_name: S) -> Option<u32> {
+    let known_enums = KNOWN_ENUMS.get()?;
+    known_enums.get(&enum_uid).and_then(|def| {
+        def.values
+            .iter()
+            .find(|(_, n)| n == variant_name.as_ref())
+            .map(|(discriminant, _)| *discriminant)
+    })
+}
+
+pub fn uid_to_enum_name(enum_uid: u32) -> Option<&'static str> {
+    let known_enums = KNOWN_ENUMS.get()?;
+    known_enums.get(&enum_uid).map(|def| def.name.as_str())
+}
+
+pub fn variant_names(enum_uid: u32) -> Option<&'static [(u32, String)]> {
+    let known_enums = KNOWN_ENUMS.get()?;
+    known_enums.get(&enum_uid).map(|def| &def.values[..])
 }
