@@ -322,6 +322,7 @@ impl Display for Variant {
             Variant::Empty => write!(f, "Empty"),
             Variant::Bool(b) => write!(f, "{b}"),
             Variant::Str(s) => write!(f, "{s}"),
+            Variant::I32(x) => write!(f, "{x}"),
             Variant::I64(x) => write!(f, "{x}"),
             Variant::U32(x) => write!(f, "{x}"),
             Variant::U64(x) => write!(f, "{x}"),
@@ -359,7 +360,54 @@ impl Display for Variant {
                 }
                 Ok(())
             }
-            Variant::I32(x) => write!(f, "{x}"),
+        }
+    }
+}
+
+impl Display for ArchivedVariant {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ArchivedVariant::Empty => write!(f, "Empty"),
+            ArchivedVariant::Bool(b) => write!(f, "{b}"),
+            ArchivedVariant::Str(s) => write!(f, "{s}"),
+            ArchivedVariant::I32(x) => write!(f, "{x}"),
+            ArchivedVariant::I64(x) => write!(f, "{x}"),
+            ArchivedVariant::U32(x) => write!(f, "{x}"),
+            ArchivedVariant::U64(x) => write!(f, "{x}"),
+            ArchivedVariant::StrList(list) => {
+                let mut iter = list.iter().peekable();
+                while let Some(s) = iter.next() {
+                    if s.is_empty() {
+                        write!(f, "⛶")?;
+                    } else {
+                        write!(f, "{s}")?;
+                    }
+                    if iter.peek().is_some() {
+                        write!(f, ", ")?;
+                    }
+                }
+                Ok(())
+            }
+            ArchivedVariant::Enum {
+                enum_uid,
+                discriminant,
+            } => match uid_to_variant_name(*enum_uid, *discriminant) {
+                Some(variant_name) => write!(f, "{variant_name}"),
+                None => write!(f, "Unknown enum {}", enum_uid),
+            },
+            ArchivedVariant::Binary(b) => write!(f, "Binary[{}B]", b.len()),
+
+            #[cfg(not(feature = "rkyv"))]
+            ArchivedVariant::List(list) => {
+                let mut iter = list.iter().peekable();
+                while let Some(s) = iter.next() {
+                    write!(f, "{s}")?;
+                    if iter.peek().is_some() {
+                        write!(f, ", ")?;
+                    }
+                }
+                Ok(())
+            }
         }
     }
 }
