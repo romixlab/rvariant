@@ -261,6 +261,22 @@ impl Variant {
             VariantTy::List => Err(Error::Unimplemented),
         }
     }
+
+    pub fn default_of(ty: VariantTy) -> Variant {
+        match ty {
+            VariantTy::Empty => Variant::Empty,
+            VariantTy::Str => Variant::Str(String::new()),
+            VariantTy::Bool => Variant::Bool(false),
+            VariantTy::StrList => Variant::StrList(Vec::new()),
+            VariantTy::I32 => Variant::I32(0),
+            VariantTy::I64 => Variant::I64(0),
+            VariantTy::U32 => Variant::U32(0),
+            VariantTy::U64 => Variant::U64(0),
+            VariantTy::Enum { enum_uid } => Variant::Enum { enum_uid, discriminant: 0 },
+            VariantTy::Binary => Variant::Binary(Vec::new()),
+            VariantTy::List => Variant::List(Vec::new()),
+        }
+    }
 }
 
 impl TryInto<u32> for &Variant {
@@ -364,6 +380,7 @@ impl Display for Variant {
     }
 }
 
+#[cfg(feature = "rkyv")]
 impl Display for ArchivedVariant {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
