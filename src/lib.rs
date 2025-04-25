@@ -1,9 +1,10 @@
+use chrono::{DateTime, FixedOffset};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use std::num::ParseIntError;
+use std::num::{ParseFloatError, ParseIntError};
 use std::sync::OnceLock;
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "rkyv",
@@ -14,6 +15,7 @@ use std::sync::OnceLock;
 // #[strum_discriminants(derive(Serialize, Deserialize))]
 // #[strum_discriminants(name(Ty))]
 pub enum Variant {
+    #[default]
     Empty,
     Bool(bool),
     Str(String),
@@ -39,7 +41,8 @@ pub enum Variant {
     // F64,
     // Currency,
     // Date,
-    // DateTime,
+    DateTime(DateTime<FixedOffset>),
+    Instant(NanoSeconds),
     // MfgPn or DynEnum?
 }
 
@@ -69,6 +72,24 @@ pub enum VariantTy {
 
     #[cfg(not(feature = "rkyv"))]
     List,
+    DateTime,
+    Instant {
+        unit: TimeUnit,
+    },
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct NanoSeconds(pub i64);
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum TimeUnit {
+    Auto,
+    Seconds,
+    Milliseconds,
+    Microseconds,
+    Nanoseconds,
 }
 
 static KNOWN_ENUMS: OnceLock<HashMap<u32, EnumDefinition>> = OnceLock::new();
@@ -99,6 +120,10 @@ impl From<&Variant> for VariantTy {
 
             #[cfg(not(feature = "rkyv"))]
             Variant::List(_) => VariantTy::List,
+            Variant::DateTime(_) => VariantTy::DateTime,
+            Variant::Instant(_) => VariantTy::Instant {
+                unit: TimeUnit::Nanoseconds,
+            },
         }
     }
 }
@@ -106,11 +131,13 @@ impl From<&Variant> for VariantTy {
 #[derive(Debug)]
 pub enum Error {
     ParseIntError(ParseIntError),
+    ParseFloatError(ParseFloatError),
     WrongEnumVariantName,
     ParseBoolError,
     Unimplemented,
     CannotConvert(VariantTy, VariantTy),
     Internal,
+    Chrono(chrono::ParseError),
 }
 
 impl Variant {
@@ -164,6 +191,24 @@ impl Variant {
 
             #[cfg(not(feature = "rkyv"))]
             VariantTy::List => Err(Error::Unimplemented),
+            VariantTy::DateTime => {
+                let dt = DateTime::parse_from_rfc3339(value.as_ref()).map_err(Error::Chrono)?;
+                Ok(Variant::DateTime(dt))
+            }
+            VariantTy::Instant { unit } => {
+                // TODO: handle unit override suffix
+                let instant: f64 = value.as_ref().parse().map_err(Error::ParseFloatError)?;
+                let mul = match unit {
+                    TimeUnit::Seconds => 1e9,
+                    TimeUnit::Milliseconds => 1e6,
+                    TimeUnit::Microseconds => 1e3,
+                    TimeUnit::Nanoseconds => 1e0,
+                    // TODO: handle unit suffix: [s], s, ms, etc
+                    TimeUnit::Auto => 1e0,
+                };
+                let instant = instant * mul;
+                Ok(Variant::Instant(NanoSeconds(instant as i64)))
+            }
         }
     }
 
@@ -192,6 +237,8 @@ impl Variant {
 
             #[cfg(not(feature = "rkyv"))]
             Variant::List(l) => l.is_empty(),
+            Variant::DateTime(_) => false,
+            Variant::Instant(_) => false,
         }
     }
 
@@ -269,14 +316,29 @@ impl Variant {
 
             #[cfg(not(feature = "rkyv"))]
             VariantTy::List => Err(Error::Unimplemented),
+            VariantTy::DateTime => match self {
+                Variant::DateTime(dt) => Ok(Variant::DateTime(dt)),
+                Variant::Str(s) => Ok(Variant::try_from_str(s, VariantTy::DateTime)?),
+                o => Err(Error::CannotConvert(VariantTy::from(&o), ty)),
+            },
+            VariantTy::Instant { .. } => match self {
+                Variant::Instant(i) => Ok(Variant::Instant(i)),
+                Variant::Str(s) => Ok(Variant::try_from_str(
+                    s,
+                    VariantTy::Instant {
+                        unit: TimeUnit::Auto,
+                    },
+                )?),
+                o => Err(Error::CannotConvert(VariantTy::from(&o), ty)),
+            },
         }
     }
 
-    pub fn as_str(&self) -> Option<&str> {
+    pub fn as_str(&self) -> Result<&str, Error> {
         match self {
-            Variant::Empty => Some(""),
-            Variant::Str(s) => Some(s.as_str()),
-            _ => None,
+            Variant::Empty => Ok(""),
+            Variant::Str(s) => Ok(s.as_str()),
+            _ => Err(Error::Unimplemented),
         }
     }
 
@@ -289,6 +351,39 @@ impl Variant {
                     return Err(Error::Internal);
                 };
                 Ok(x)
+            }
+            o => Err(Error::CannotConvert(VariantTy::from(o), VariantTy::U8)),
+        }
+    }
+
+    pub fn as_date_time(&self) -> Result<DateTime<FixedOffset>, Error> {
+        match self {
+            Variant::DateTime(dt) => Ok(*dt),
+            Variant::Str(s) => {
+                let dt = Variant::try_from_str(s, VariantTy::DateTime)?;
+                let Variant::DateTime(dt) = dt else {
+                    return Err(Error::Internal);
+                };
+                Ok(dt)
+            }
+            o => Err(Error::CannotConvert(VariantTy::from(o), VariantTy::U8)),
+        }
+    }
+
+    pub fn as_instant(&self) -> Result<NanoSeconds, Error> {
+        match self {
+            Variant::Instant(instant) => Ok(*instant),
+            Variant::Str(s) => {
+                let instant = Variant::try_from_str(
+                    s,
+                    VariantTy::Instant {
+                        unit: TimeUnit::Auto,
+                    },
+                )?;
+                let Variant::Instant(instant) = instant else {
+                    return Err(Error::Internal);
+                };
+                Ok(instant)
             }
             o => Err(Error::CannotConvert(VariantTy::from(o), VariantTy::U8)),
         }
@@ -312,6 +407,8 @@ impl Variant {
             },
             VariantTy::Binary => Variant::Binary(Vec::new()),
             VariantTy::List => Variant::List(Vec::new()),
+            VariantTy::DateTime => Variant::Empty, // TODO: Change to Option?
+            VariantTy::Instant { .. } => Variant::Empty,
         }
     }
 
@@ -371,7 +468,22 @@ impl Display for VariantTy {
 
             #[cfg(not(feature = "rkyv"))]
             VariantTy::List => write!(f, "List<Value>"),
+            VariantTy::DateTime => write!(f, "DateTime<RFC3339>"),
+            VariantTy::Instant { unit } => write!(f, "Instant [{unit}]"),
         }
+    }
+}
+
+impl Display for TimeUnit {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let unit = match self {
+            TimeUnit::Auto => "auto",
+            TimeUnit::Seconds => "s",
+            TimeUnit::Milliseconds => "ms",
+            TimeUnit::Microseconds => "us",
+            TimeUnit::Nanoseconds => "ns",
+        };
+        write!(f, "{unit}")
     }
 }
 
@@ -421,6 +533,8 @@ impl Display for Variant {
                 }
                 Ok(())
             }
+            Variant::DateTime(dt) => write!(f, "{dt}"),
+            Variant::Instant(instant) => write!(f, "{}ns", instant.0),
         }
     }
 }
