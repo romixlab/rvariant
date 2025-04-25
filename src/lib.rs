@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+use std::num::ParseIntError;
 use std::sync::OnceLock;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -19,6 +20,8 @@ pub enum Variant {
     StrList(Vec<String>),
     I32(i32),
     I64(i64),
+    U8(u8),
+    U16(u16),
     U32(u32),
     U64(u64),
     Enum {
@@ -55,6 +58,8 @@ pub enum VariantTy {
     StrList,
     I32,
     I64,
+    U8,
+    U16,
     U32,
     U64,
     Enum {
@@ -83,6 +88,8 @@ impl From<&Variant> for VariantTy {
             Variant::StrList(_) => VariantTy::StrList,
             Variant::I32(_) => VariantTy::I32,
             Variant::I64(_) => VariantTy::I64,
+            Variant::U8(_) => VariantTy::U8,
+            Variant::U16(_) => VariantTy::U16,
             Variant::U32(_) => VariantTy::U32,
             Variant::U64(_) => VariantTy::U64,
             Variant::Enum { enum_uid, .. } => VariantTy::Enum {
@@ -98,11 +105,12 @@ impl From<&Variant> for VariantTy {
 
 #[derive(Debug)]
 pub enum Error {
-    ParseIntError(std::num::ParseIntError),
+    ParseIntError(ParseIntError),
     WrongEnumVariantName,
     ParseBoolError,
     Unimplemented,
     CannotConvert(VariantTy, VariantTy),
+    Internal,
 }
 
 impl Variant {
@@ -120,34 +128,24 @@ impl Variant {
                 }
             }
             VariantTy::Str => Ok(Variant::Str(value.as_ref().to_owned())),
-            VariantTy::I32 => {
-                let x: Result<i32, _> = value.as_ref().parse();
-                match x {
-                    Ok(x) => Ok(Variant::I32(x)),
-                    Err(e) => Err(Error::ParseIntError(e)),
-                }
-            }
-            VariantTy::I64 => {
-                let x: Result<i64, _> = value.as_ref().parse();
-                match x {
-                    Ok(x) => Ok(Variant::I64(x)),
-                    Err(e) => Err(Error::ParseIntError(e)),
-                }
-            }
-            VariantTy::U32 => {
-                let x: Result<u32, _> = value.as_ref().parse();
-                match x {
-                    Ok(x) => Ok(Variant::U32(x)),
-                    Err(e) => Err(Error::ParseIntError(e)),
-                }
-            }
-            VariantTy::U64 => {
-                let x: Result<u64, _> = value.as_ref().parse();
-                match x {
-                    Ok(x) => Ok(Variant::U64(x)),
-                    Err(e) => Err(Error::ParseIntError(e)),
-                }
-            }
+            VariantTy::I32 => Ok(Variant::I32(
+                parse_int::parse(value.as_ref()).map_err(Error::ParseIntError)?,
+            )),
+            VariantTy::I64 => Ok(Variant::I64(
+                parse_int::parse(value.as_ref()).map_err(Error::ParseIntError)?,
+            )),
+            VariantTy::U8 => Ok(Variant::U8(
+                parse_int::parse(value.as_ref()).map_err(Error::ParseIntError)?,
+            )),
+            VariantTy::U16 => Ok(Variant::U16(
+                parse_int::parse(value.as_ref()).map_err(Error::ParseIntError)?,
+            )),
+            VariantTy::U32 => Ok(Variant::U32(
+                parse_int::parse(value.as_ref()).map_err(Error::ParseIntError)?,
+            )),
+            VariantTy::U64 => Ok(Variant::U64(
+                parse_int::parse(value.as_ref()).map_err(Error::ParseIntError)?,
+            )),
             VariantTy::StrList => Ok(Variant::StrList(
                 value
                     .as_ref()
@@ -185,6 +183,8 @@ impl Variant {
             Variant::StrList(l) => l.is_empty(),
             Variant::I32(_) => false,
             Variant::I64(_) => false,
+            Variant::U8(_) => false,
+            Variant::U16(_) => false,
             Variant::U32(_) => false,
             Variant::U64(_) => false,
             Variant::Enum { .. } => false,
@@ -225,6 +225,16 @@ impl Variant {
                 Variant::Str(s) => Variant::try_from_str(s, ty),
                 o => Err(Error::CannotConvert(VariantTy::from(&o), ty)),
             },
+            VariantTy::U8 => match self {
+                Variant::U8(x) => Ok(Variant::U8(x)),
+                Variant::Str(s) => Variant::try_from_str(s, ty),
+                o => Err(Error::CannotConvert(VariantTy::from(&o), ty)),
+            },
+            VariantTy::U16 => match self {
+                Variant::U16(x) => Ok(Variant::U16(x)),
+                Variant::Str(s) => Variant::try_from_str(s, ty),
+                o => Err(Error::CannotConvert(VariantTy::from(&o), ty)),
+            },
             VariantTy::U32 => match self {
                 Variant::U32(x) => Ok(Variant::U32(x)),
                 Variant::Str(s) => Variant::try_from_str(s, ty),
@@ -262,6 +272,28 @@ impl Variant {
         }
     }
 
+    pub fn as_str(&self) -> Option<&str> {
+        match self {
+            Variant::Empty => Some(""),
+            Variant::Str(s) => Some(s.as_str()),
+            _ => None,
+        }
+    }
+
+    pub fn as_u8(&self) -> Result<u8, Error> {
+        match self {
+            Variant::U8(x) => Ok(*x),
+            Variant::Str(s) => {
+                let v_u8 = Variant::try_from_str(s, VariantTy::U8)?;
+                let Variant::U8(x) = v_u8 else {
+                    return Err(Error::Internal);
+                };
+                Ok(x)
+            }
+            o => Err(Error::CannotConvert(VariantTy::from(o), VariantTy::U8)),
+        }
+    }
+
     pub fn default_of(ty: VariantTy) -> Variant {
         match ty {
             VariantTy::Empty => Variant::Empty,
@@ -270,12 +302,21 @@ impl Variant {
             VariantTy::StrList => Variant::StrList(Vec::new()),
             VariantTy::I32 => Variant::I32(0),
             VariantTy::I64 => Variant::I64(0),
+            VariantTy::U8 => Variant::U8(0),
+            VariantTy::U16 => Variant::U16(0),
             VariantTy::U32 => Variant::U32(0),
             VariantTy::U64 => Variant::U64(0),
-            VariantTy::Enum { enum_uid } => Variant::Enum { enum_uid, discriminant: 0 },
+            VariantTy::Enum { enum_uid } => Variant::Enum {
+                enum_uid,
+                discriminant: 0,
+            },
             VariantTy::Binary => Variant::Binary(Vec::new()),
             VariantTy::List => Variant::List(Vec::new()),
         }
+    }
+
+    pub fn str<S: AsRef<str>>(s: S) -> Variant {
+        Variant::Str(s.as_ref().to_string())
     }
 }
 
@@ -317,6 +358,8 @@ impl Display for VariantTy {
             VariantTy::StrList => write!(f, "List<String>"),
             VariantTy::I32 => write!(f, "i32"),
             VariantTy::I64 => write!(f, "i64"),
+            VariantTy::U8 => write!(f, "u8"),
+            VariantTy::U16 => write!(f, "u16"),
             VariantTy::U32 => write!(f, "u32"),
             VariantTy::U64 => write!(f, "u64"),
             VariantTy::Enum { enum_uid } => write!(
@@ -340,6 +383,8 @@ impl Display for Variant {
             Variant::Str(s) => write!(f, "{s}"),
             Variant::I32(x) => write!(f, "{x}"),
             Variant::I64(x) => write!(f, "{x}"),
+            Variant::U8(x) => write!(f, "{x}"),
+            Variant::U16(x) => write!(f, "{x}"),
             Variant::U32(x) => write!(f, "{x}"),
             Variant::U64(x) => write!(f, "{x}"),
             Variant::StrList(list) => {

@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 serde = { version = "1", features = ["derive"], optional = true }
 rkyv = { version = "0.7.42", features = ["validation", "strict"], optional = true }
+parse_int = "0.9"
