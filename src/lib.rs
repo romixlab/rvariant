@@ -138,6 +138,7 @@ pub enum Error {
     CannotConvert(VariantTy, VariantTy),
     Internal,
     Chrono(chrono::ParseError),
+    Empty,
 }
 
 impl Variant {
@@ -326,7 +327,7 @@ impl Variant {
                 Variant::Str(s) => Ok(Variant::try_from_str(
                     s,
                     VariantTy::Instant {
-                        unit: TimeUnit::Auto,
+                        unit: TimeUnit::Seconds,
                     },
                 )?),
                 o => Err(Error::CannotConvert(VariantTy::from(&o), ty)),
@@ -338,6 +339,40 @@ impl Variant {
         match self {
             Variant::Empty => Ok(""),
             Variant::Str(s) => Ok(s.as_str()),
+            _ => Err(Error::Unimplemented),
+        }
+    }
+
+    pub fn as_string(&self) -> Result<String, Error> {
+        match self {
+            Variant::Empty => Ok(String::new()),
+            Variant::Str(s) => Ok(s.clone()),
+            _ => Err(Error::Unimplemented),
+        }
+    }
+
+    pub fn as_non_empty_str(&self) -> Result<&str, Error> {
+        match self {
+            Variant::Str(s) => {
+                if s.is_empty() {
+                    Err(Error::Empty)
+                } else {
+                    Ok(s.as_str())
+                }
+            }
+            _ => Err(Error::Unimplemented),
+        }
+    }
+
+    pub fn as_non_empty_string(&self) -> Result<String, Error> {
+        match self {
+            Variant::Str(s) => {
+                if s.is_empty() {
+                    Err(Error::Empty)
+                } else {
+                    Ok(s.clone())
+                }
+            }
             _ => Err(Error::Unimplemented),
         }
     }
@@ -366,7 +401,10 @@ impl Variant {
                 };
                 Ok(dt)
             }
-            o => Err(Error::CannotConvert(VariantTy::from(o), VariantTy::U8)),
+            o => Err(Error::CannotConvert(
+                VariantTy::from(o),
+                VariantTy::DateTime,
+            )),
         }
     }
 
@@ -377,7 +415,7 @@ impl Variant {
                 let instant = Variant::try_from_str(
                     s,
                     VariantTy::Instant {
-                        unit: TimeUnit::Auto,
+                        unit: TimeUnit::Seconds,
                     },
                 )?;
                 let Variant::Instant(instant) = instant else {
@@ -385,7 +423,12 @@ impl Variant {
                 };
                 Ok(instant)
             }
-            o => Err(Error::CannotConvert(VariantTy::from(o), VariantTy::U8)),
+            o => Err(Error::CannotConvert(
+                VariantTy::from(o),
+                VariantTy::Instant {
+                    unit: TimeUnit::Seconds,
+                },
+            )),
         }
     }
 
