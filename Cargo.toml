@@ -1,10 +1,14 @@
 [package]
 name = "rvariant"
-version = "0.1.0"
-edition = "2021"
+version = "0.2.0"
+edition = "2024"
 
 [dependencies]
-serde = { version = "1", features = ["derive"], optional = true }
+serde = { version = "1", features = ["derive", "rc"], optional = true }
 rkyv = { version = "0.8", features = [], optional = true }
 parse_int = "0.9"
+num-traits = "0.2"
 chrono = { version = "0.4", features = ["serde"] }
+indexmap = { version = "2", features = ["serde"] }
+si_dynamic = { path = "../si_dynamic" }
+strum = { version = "0.27", features = ["derive"] }
