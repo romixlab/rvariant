@@ -1,10 +1,17 @@
-use chrono::{DateTime, FixedOffset};
-use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
-use std::num::{ParseFloatError, ParseIntError};
-use std::sync::OnceLock;
+mod number;
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
+pub use crate::number::{Number, NumberTy, F32, F64};
+use chrono::{DateTime, FixedOffset, NaiveDate, NaiveTime};
+use indexmap::IndexMap;
+pub use si_dynamic;
+use si_dynamic::{OhmF32, SIUnit};
+use std::cmp::Ordering;
+use std::fmt::{Display, Formatter};
+use std::hash::{Hash, Hasher};
+use std::sync::Arc;
+use strum::{AsRefStr, EnumDiscriminants, EnumIter};
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "rkyv",
@@ -12,41 +19,61 @@ use std::sync::OnceLock;
 )]
 #[cfg_attr(feature = "rkyv", archive(check_bytes))]
 #[cfg_attr(feature = "rkyv", archive_attr(derive(Debug)))]
-// #[strum_discriminants(derive(Serialize, Deserialize))]
-// #[strum_discriminants(name(Ty))]
 pub enum Variant {
     #[default]
     Empty,
     Bool(bool),
     Str(String),
     StrList(Vec<String>),
-    I32(i32),
-    I64(i64),
-    U8(u8),
-    U16(u16),
-    U32(u32),
-    U64(u64),
-    Enum {
-        enum_uid: u32,
-        discriminant: u32,
+    Number(Number),
+    SI {
+        value: Number,
+        unit: SIUnit,
     },
-    Binary(Vec<u8>),
+    SIRange {
+        start: Number,
+        start_inclusive: bool,
+        end: Number,
+        end_inclusive: bool,
+        unit: SIUnit,
+    },
 
-    #[cfg(not(feature = "rkyv"))]
+    Enum {
+        name: Arc<String>,
+        selected: String,
+        variants: Arc<Vec<String>>,
+    },
+    MultiSelectionEnum {
+        name: Arc<String>,
+        selected: Vec<String>,
+        variants: Arc<Vec<String>>,
+    },
+
+    Binary(Vec<u8>),
     List(Vec<Variant>),
-    // MultiSelectionEnum (temp coefficient?)
-    // Tolerance
-    // SI
-    // SI range (e.g. temperature range)
-    // F64,
-    // Currency,
-    // Date,
+    Map(Map),
+
+    Date(NaiveDate),
+    Time(NaiveTime),
     DateTime(DateTime<FixedOffset>),
     Instant(NanoSeconds),
-    // MfgPn or DynEnum?
+
+    Money {
+        currency: Arc<String>,
+        precision: u8,
+        value: u64,
+    },
+
+    Tolerance {
+        min: Number,
+        min_percent: bool,
+        max: Number,
+        max_percent: bool,
+    },
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, EnumDiscriminants)]
+#[strum_discriminants(derive(EnumIter, AsRefStr))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "rkyv",
@@ -57,48 +84,85 @@ pub enum Variant {
 pub enum VariantTy {
     Empty,
     Bool,
+    #[default]
     Str,
     StrList,
-    I32,
-    I64,
-    U8,
-    U16,
-    U32,
-    U64,
-    Enum {
-        enum_uid: u32,
+    Number(NumberTy),
+    SI {
+        number_ty: NumberTy,
+        unit: SIUnit,
     },
-    Binary,
+    SIRange {
+        number_ty: NumberTy,
+        start_inclusive: bool,
+        end_inclusive: bool,
+        unit: SIUnit,
+    },
 
-    #[cfg(not(feature = "rkyv"))]
-    List,
-    DateTime,
-    Instant {
-        unit: TimeUnit,
+    Enum {
+        name: Arc<String>,
+        variants: Arc<Vec<String>>,
     },
+    MultiSelectionEnum {
+        name: Arc<String>,
+        variants: Arc<Vec<String>>,
+    },
+
+    Binary,
+    List,
+    Map,
+
+    Date,
+    Time,
+    DateTime,
+    Instant,
+
+    Money {
+        currency: Arc<String>,
+        precision: u8,
+    },
+
+    Tolerance(NumberTy),
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct Map(pub IndexMap<Variant, Variant>);
+impl Eq for Map {}
+impl PartialEq for Map {
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other).is_eq()
+    }
+}
+impl PartialOrd for Map {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for Map {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.0.iter().cmp(other.0.iter())
+    }
+}
+impl Hash for Map {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.iter().for_each(|x| x.hash(state));
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct NanoSeconds(pub i64);
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum TimeUnit {
-    Auto,
-    Seconds,
-    Milliseconds,
-    Microseconds,
-    Nanoseconds,
-}
-
-static KNOWN_ENUMS: OnceLock<HashMap<u32, EnumDefinition>> = OnceLock::new();
-
-#[derive(Debug)]
-pub struct EnumDefinition {
-    pub name: String,
-    pub values: Vec<(u32, String)>,
-}
+// #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+// #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+// pub enum TimeUnit {
+//     Auto,
+//     Seconds,
+//     Milliseconds,
+//     Microseconds,
+//     Nanoseconds,
+// }
 
 impl From<&Variant> for VariantTy {
     fn from(value: &Variant) -> Self {
@@ -107,42 +171,72 @@ impl From<&Variant> for VariantTy {
             Variant::Bool(_) => VariantTy::Bool,
             Variant::Str(_) => VariantTy::Str,
             Variant::StrList(_) => VariantTy::StrList,
-            Variant::I32(_) => VariantTy::I32,
-            Variant::I64(_) => VariantTy::I64,
-            Variant::U8(_) => VariantTy::U8,
-            Variant::U16(_) => VariantTy::U16,
-            Variant::U32(_) => VariantTy::U32,
-            Variant::U64(_) => VariantTy::U64,
-            Variant::Enum { enum_uid, .. } => VariantTy::Enum {
-                enum_uid: *enum_uid,
+            Variant::Number(n) => VariantTy::Number(n.into()),
+            Variant::SI { value, unit } => VariantTy::SI {
+                number_ty: value.into(),
+                unit: unit.clone(),
             },
-            Variant::Binary(_) => VariantTy::Binary,
+            Variant::SIRange {
+                start,
+                start_inclusive,
+                end: _,
+                end_inclusive,
+                unit,
+            } => VariantTy::SIRange {
+                number_ty: start.into(),
+                start_inclusive: *start_inclusive,
+                end_inclusive: *end_inclusive,
+                unit: unit.clone(),
+            },
 
-            #[cfg(not(feature = "rkyv"))]
-            Variant::List(_) => VariantTy::List,
-            Variant::DateTime(_) => VariantTy::DateTime,
-            Variant::Instant(_) => VariantTy::Instant {
-                unit: TimeUnit::Nanoseconds,
+            Variant::Enum { name, variants, .. } => VariantTy::Enum {
+                name: name.clone(),
+                variants: variants.clone(),
             },
+            Variant::MultiSelectionEnum { name, variants, .. } => VariantTy::MultiSelectionEnum {
+                name: name.clone(),
+                variants: variants.clone(),
+            },
+
+            Variant::Binary(_) => VariantTy::Binary,
+            Variant::List(_) => VariantTy::List,
+            Variant::Map(_) => VariantTy::Map,
+
+            Variant::Date(_) => VariantTy::Date,
+            Variant::Time(_) => VariantTy::Time,
+            Variant::DateTime(_) => VariantTy::DateTime,
+            Variant::Instant(_) => VariantTy::Instant,
+
+            Variant::Money {
+                currency,
+                precision,
+                ..
+            } => VariantTy::Money {
+                currency: currency.clone(),
+                precision: *precision,
+            },
+
+            Variant::Tolerance { min, .. } => VariantTy::Tolerance(min.into()),
         }
     }
 }
 
 #[derive(Debug)]
 pub enum Error {
-    ParseIntError(ParseIntError),
-    ParseFloatError(ParseFloatError),
+    ParseIntError(std::num::ParseIntError),
+    ParseFloatError(num_traits::ParseFloatError),
+    Verbatim(String),
     WrongEnumVariantName,
     ParseBoolError,
     Unimplemented,
-    CannotConvert(VariantTy, VariantTy),
+    CannotConvert(Box<VariantTy>, Box<VariantTy>),
     Internal,
     Chrono(chrono::ParseError),
     Empty,
 }
 
 impl Variant {
-    pub fn try_from_str<S: AsRef<str>>(value: S, to: VariantTy) -> Result<Self, Error> {
+    pub fn try_from_str<S: AsRef<str>>(value: S, to: &VariantTy) -> Result<Self, Error> {
         match to {
             VariantTy::Empty => Ok(Variant::Empty),
             VariantTy::Bool => {
@@ -156,64 +250,73 @@ impl Variant {
                 }
             }
             VariantTy::Str => Ok(Variant::Str(value.as_ref().to_owned())),
-            VariantTy::I32 => Ok(Variant::I32(
-                parse_int::parse(value.as_ref()).map_err(Error::ParseIntError)?,
-            )),
-            VariantTy::I64 => Ok(Variant::I64(
-                parse_int::parse(value.as_ref()).map_err(Error::ParseIntError)?,
-            )),
-            VariantTy::U8 => Ok(Variant::U8(
-                parse_int::parse(value.as_ref()).map_err(Error::ParseIntError)?,
-            )),
-            VariantTy::U16 => Ok(Variant::U16(
-                parse_int::parse(value.as_ref()).map_err(Error::ParseIntError)?,
-            )),
-            VariantTy::U32 => Ok(Variant::U32(
-                parse_int::parse(value.as_ref()).map_err(Error::ParseIntError)?,
-            )),
-            VariantTy::U64 => Ok(Variant::U64(
-                parse_int::parse(value.as_ref()).map_err(Error::ParseIntError)?,
-            )),
             VariantTy::StrList => Ok(Variant::StrList(
                 value
                     .as_ref()
-                    .split(&[',', ';'])
+                    .split(&[',', ';', '\t'])
                     .map(|s| s.trim().to_string())
                     .filter(|s| !s.is_empty())
                     .collect(),
             )),
-            VariantTy::Enum { enum_uid } => variant_name_to_discriminant(enum_uid, value)
-                .map(|d| Variant::Enum {
-                    enum_uid,
-                    discriminant: d,
-                })
-                .ok_or(Error::WrongEnumVariantName),
-            VariantTy::Binary => Err(Error::Unimplemented),
 
-            #[cfg(not(feature = "rkyv"))]
+            VariantTy::Number(number_ty) => {
+                Ok(Variant::Number(Number::try_from_str(value, *number_ty)?))
+            }
+            VariantTy::SI { number_ty, unit } => {
+                if unit == &SIUnit::Ohm {
+                    let value = OhmF32::parse(value)
+                        .map_err(|e| Error::Verbatim(format!("SI Ohm parse failed {:?}", e)))?;
+                    Ok(Variant::SI {
+                        value: Number::F32(value.0.into()), // TODO: SI: do not assume f32
+                        unit: unit.clone(),
+                    })
+                } else {
+                    Ok(Variant::SI {
+                        value: Number::try_from_str(value, *number_ty)?,
+                        unit: unit.clone(), // TODO: parse unit
+                    })
+                }
+            }
+            VariantTy::SIRange { .. } => Err(Error::Unimplemented),
+
+            VariantTy::Enum { .. } => Err(Error::Unimplemented),
+            VariantTy::MultiSelectionEnum { .. } => Err(Error::Unimplemented),
+
+            VariantTy::Binary => Err(Error::Unimplemented),
             VariantTy::List => Err(Error::Unimplemented),
+            VariantTy::Map => Err(Error::Unimplemented),
+
+            VariantTy::Date => Err(Error::Unimplemented),
+            VariantTy::Time => Err(Error::Unimplemented),
             VariantTy::DateTime => {
                 let dt = DateTime::parse_from_rfc3339(value.as_ref()).map_err(Error::Chrono)?;
                 Ok(Variant::DateTime(dt))
             }
-            VariantTy::Instant { unit } => {
-                // TODO: handle unit override suffix
-                let instant: f64 = value.as_ref().parse().map_err(Error::ParseFloatError)?;
-                let mul = match unit {
-                    TimeUnit::Seconds => 1e9,
-                    TimeUnit::Milliseconds => 1e6,
-                    TimeUnit::Microseconds => 1e3,
-                    TimeUnit::Nanoseconds => 1e0,
-                    // TODO: handle unit suffix: [s], s, ms, etc
-                    TimeUnit::Auto => 1e0,
+            VariantTy::Instant => {
+                let value = value.as_ref().trim();
+                let (value, mul) = if let Some(value) = value.strip_suffix("s") {
+                    (value, 1e9)
+                } else if let Some(value) = value.strip_suffix("ms") {
+                    (value, 1e6)
+                } else if let Some(value) = value.strip_suffix("us") {
+                    (value, 1e3)
+                } else if let Some(value) = value.strip_suffix("ns") {
+                    (value, 1e0)
+                } else {
+                    (value, 1e0)
                 };
+                let instant: f64 = parse_int::parse(value).map_err(Error::ParseFloatError)?;
                 let instant = instant * mul;
                 Ok(Variant::Instant(NanoSeconds(instant as i64)))
             }
+
+            VariantTy::Money { .. } => Err(Error::Unimplemented),
+
+            VariantTy::Tolerance(_) => Err(Error::Unimplemented),
         }
     }
 
-    pub fn from_str<S: AsRef<str>>(value: S, to: VariantTy) -> Self {
+    pub fn from_str<S: AsRef<str>>(value: S, to: &VariantTy) -> Self {
         let value = value.as_ref();
         match Self::try_from_str(value, to) {
             Ok(value) => value,
@@ -227,111 +330,52 @@ impl Variant {
             Variant::Bool(_) => false,
             Variant::Str(s) => s.is_empty(),
             Variant::StrList(l) => l.is_empty(),
-            Variant::I32(_) => false,
-            Variant::I64(_) => false,
-            Variant::U8(_) => false,
-            Variant::U16(_) => false,
-            Variant::U32(_) => false,
-            Variant::U64(_) => false,
-            Variant::Enum { .. } => false,
-            Variant::Binary(b) => b.is_empty(),
 
-            #[cfg(not(feature = "rkyv"))]
+            Variant::Number(_) => false,
+            Variant::SI { .. } => false,
+            Variant::SIRange { .. } => false,
+
+            Variant::Enum { .. } => false,
+            Variant::MultiSelectionEnum { .. } => false,
+
+            Variant::Binary(b) => b.is_empty(),
             Variant::List(l) => l.is_empty(),
+            Variant::Map(m) => m.0.is_empty(),
+
+            Variant::Date(_) => false,
+            Variant::Time(_) => false,
             Variant::DateTime(_) => false,
-            Variant::Instant(_) => false,
+            Variant::Instant { .. } => false,
+
+            Variant::Money { .. } => false,
+
+            Variant::Tolerance { .. } => false,
         }
     }
 
-    pub fn convert_to(self, ty: VariantTy) -> Result<Variant, Error> {
-        if VariantTy::from(&self) == ty {
+    pub fn convert_to(self, to: &VariantTy) -> Result<Variant, Error> {
+        if &VariantTy::from(&self) == to {
             return Ok(self);
         }
-        match ty {
-            VariantTy::Empty => Ok(Variant::Empty),
-            VariantTy::Str => match self {
-                Variant::Str(s) => Ok(Variant::Str(s)),
-                o => Ok(Variant::Str(format!("{}", o))),
-            },
-            VariantTy::Bool => match self {
-                Variant::Bool(b) => Ok(Variant::Bool(b)),
-                Variant::Str(s) => Variant::try_from_str(s, ty),
-                o => Err(Error::CannotConvert(VariantTy::from(&o), ty)),
-            },
-            VariantTy::StrList => match self {
-                Variant::StrList(l) => Ok(Variant::StrList(l)),
-                Variant::Str(s) => Variant::try_from_str(s, ty),
-                o => Err(Error::CannotConvert(VariantTy::from(&o), ty)),
-            },
-            VariantTy::I32 => match self {
-                Variant::I32(x) => Ok(Variant::I32(x)),
-                Variant::Str(s) => Variant::try_from_str(s, ty),
-                o => Err(Error::CannotConvert(VariantTy::from(&o), ty)),
-            },
-            VariantTy::I64 => match self {
-                Variant::I64(x) => Ok(Variant::I64(x)),
-                Variant::Str(s) => Variant::try_from_str(s, ty),
-                o => Err(Error::CannotConvert(VariantTy::from(&o), ty)),
-            },
-            VariantTy::U8 => match self {
-                Variant::U8(x) => Ok(Variant::U8(x)),
-                Variant::Str(s) => Variant::try_from_str(s, ty),
-                o => Err(Error::CannotConvert(VariantTy::from(&o), ty)),
-            },
-            VariantTy::U16 => match self {
-                Variant::U16(x) => Ok(Variant::U16(x)),
-                Variant::Str(s) => Variant::try_from_str(s, ty),
-                o => Err(Error::CannotConvert(VariantTy::from(&o), ty)),
-            },
-            VariantTy::U32 => match self {
-                Variant::U32(x) => Ok(Variant::U32(x)),
-                Variant::Str(s) => Variant::try_from_str(s, ty),
-                o => Err(Error::CannotConvert(VariantTy::from(&o), ty)),
-            },
-            VariantTy::U64 => match self {
-                Variant::U64(x) => Ok(Variant::U64(x)),
-                Variant::Str(s) => Variant::try_from_str(s, ty),
-                o => Err(Error::CannotConvert(VariantTy::from(&o), ty)),
-            },
-            VariantTy::Enum { enum_uid: to_uid } => match self {
-                Variant::Enum {
-                    enum_uid,
-                    discriminant,
-                } => {
-                    if enum_uid == to_uid {
-                        Ok(Variant::Enum {
-                            enum_uid,
-                            discriminant,
-                        })
-                    } else {
-                        Err(Error::CannotConvert(
-                            VariantTy::Enum { enum_uid },
-                            VariantTy::Enum { enum_uid: to_uid },
-                        ))
-                    }
+        // all non-str cases
+        match to {
+            VariantTy::Empty => return Ok(Variant::Empty),
+            VariantTy::Number(number_ty) => match self {
+                Variant::Number(n) => return Ok(Variant::Number(n.convert_to(*number_ty)?)),
+                Variant::SI { value, .. } => {
+                    return Ok(Variant::Number(value.convert_to(*number_ty)?))
                 }
-                Variant::Str(s) => Variant::try_from_str(s, ty),
-                o => Err(Error::CannotConvert(VariantTy::from(&o), ty)),
+                _ => {}
             },
-            VariantTy::Binary => Err(Error::Unimplemented),
-
-            #[cfg(not(feature = "rkyv"))]
-            VariantTy::List => Err(Error::Unimplemented),
-            VariantTy::DateTime => match self {
-                Variant::DateTime(dt) => Ok(Variant::DateTime(dt)),
-                Variant::Str(s) => Ok(Variant::try_from_str(s, VariantTy::DateTime)?),
-                o => Err(Error::CannotConvert(VariantTy::from(&o), ty)),
-            },
-            VariantTy::Instant { .. } => match self {
-                Variant::Instant(i) => Ok(Variant::Instant(i)),
-                Variant::Str(s) => Ok(Variant::try_from_str(
-                    s,
-                    VariantTy::Instant {
-                        unit: TimeUnit::Seconds,
-                    },
-                )?),
-                o => Err(Error::CannotConvert(VariantTy::from(&o), ty)),
-            },
+            _ => {}
+        }
+        if let Variant::Str(s) = self {
+            Ok(Variant::try_from_str(s, to)?)
+        } else {
+            Err(Error::CannotConvert(
+                Box::new(VariantTy::from(&self)),
+                Box::new(to.clone()),
+            ))
         }
     }
 
@@ -378,16 +422,28 @@ impl Variant {
     }
 
     pub fn as_u8(&self) -> Result<u8, Error> {
-        match self {
-            Variant::U8(x) => Ok(*x),
-            Variant::Str(s) => {
-                let v_u8 = Variant::try_from_str(s, VariantTy::U8)?;
-                let Variant::U8(x) = v_u8 else {
-                    return Err(Error::Internal);
-                };
-                Ok(x)
-            }
-            o => Err(Error::CannotConvert(VariantTy::from(o), VariantTy::U8)),
+        if let Variant::Number(Number::U8(x)) = self {
+            return Ok(*x);
+        }
+        if let Variant::Number(Number::U8(x)) =
+            self.clone().convert_to(&VariantTy::Number(NumberTy::U8))?
+        {
+            Ok(x)
+        } else {
+            Err(Error::Internal)
+        }
+    }
+
+    pub fn as_u64(&self) -> Result<u64, Error> {
+        if let Variant::Number(Number::U64(x)) = self {
+            return Ok(*x);
+        }
+        if let Variant::Number(Number::U64(x)) =
+            self.clone().convert_to(&VariantTy::Number(NumberTy::U64))?
+        {
+            Ok(x)
+        } else {
+            Err(Error::Internal)
         }
     }
 
@@ -395,97 +451,94 @@ impl Variant {
         match self {
             Variant::DateTime(dt) => Ok(*dt),
             Variant::Str(s) => {
-                let dt = Variant::try_from_str(s, VariantTy::DateTime)?;
+                let dt = Variant::try_from_str(s, &VariantTy::DateTime)?;
                 let Variant::DateTime(dt) = dt else {
                     return Err(Error::Internal);
                 };
                 Ok(dt)
             }
             o => Err(Error::CannotConvert(
-                VariantTy::from(o),
-                VariantTy::DateTime,
+                Box::new(VariantTy::from(o)),
+                Box::new(VariantTy::DateTime),
             )),
         }
     }
 
     pub fn as_instant(&self) -> Result<NanoSeconds, Error> {
         match self {
-            Variant::Instant(instant) => Ok(*instant),
+            Variant::Instant(value) => Ok(*value),
             Variant::Str(s) => {
-                let instant = Variant::try_from_str(
-                    s,
-                    VariantTy::Instant {
-                        unit: TimeUnit::Seconds,
-                    },
-                )?;
-                let Variant::Instant(instant) = instant else {
+                let instant = Variant::try_from_str(s, &VariantTy::Instant)?;
+                let Variant::Instant(value) = instant else {
                     return Err(Error::Internal);
                 };
-                Ok(instant)
+                Ok(value)
             }
             o => Err(Error::CannotConvert(
-                VariantTy::from(o),
-                VariantTy::Instant {
-                    unit: TimeUnit::Seconds,
-                },
+                Box::new(VariantTy::from(o)),
+                Box::new(VariantTy::Instant),
             )),
         }
     }
 
-    pub fn default_of(ty: VariantTy) -> Variant {
+    pub fn default_of(ty: &VariantTy) -> Variant {
         match ty {
             VariantTy::Empty => Variant::Empty,
             VariantTy::Str => Variant::Str(String::new()),
             VariantTy::Bool => Variant::Bool(false),
             VariantTy::StrList => Variant::StrList(Vec::new()),
-            VariantTy::I32 => Variant::I32(0),
-            VariantTy::I64 => Variant::I64(0),
-            VariantTy::U8 => Variant::U8(0),
-            VariantTy::U16 => Variant::U16(0),
-            VariantTy::U32 => Variant::U32(0),
-            VariantTy::U64 => Variant::U64(0),
-            VariantTy::Enum { enum_uid } => Variant::Enum {
-                enum_uid,
-                discriminant: 0,
-            },
+            VariantTy::Number(ty) => Variant::Number(Number::default_of(*ty)),
             VariantTy::Binary => Variant::Binary(Vec::new()),
             VariantTy::List => Variant::List(Vec::new()),
-            VariantTy::DateTime => Variant::Empty, // TODO: Change to Option?
-            VariantTy::Instant { .. } => Variant::Empty,
+            VariantTy::Instant => Variant::Empty,
+            VariantTy::SI { number_ty, unit } => Variant::SI {
+                value: Number::default_of(*number_ty),
+                unit: unit.clone(),
+            },
+            VariantTy::SIRange { .. } => Variant::Empty,
+            VariantTy::Enum { .. } => Variant::Empty,
+            VariantTy::MultiSelectionEnum { .. } => Variant::Empty,
+            VariantTy::Map => Variant::Map(Map(IndexMap::new())),
+            VariantTy::Date => Variant::Empty,
+            VariantTy::Time => Variant::Empty,
+            VariantTy::DateTime => Variant::Empty,
+            VariantTy::Money { .. } => Variant::Empty,
+            VariantTy::Tolerance(_) => Variant::Empty,
         }
     }
 
     pub fn str<S: AsRef<str>>(s: S) -> Variant {
         Variant::Str(s.as_ref().to_string())
     }
-}
 
-impl TryInto<u32> for &Variant {
-    type Error = ();
+    pub fn i32(x: i32) -> Variant {
+        Variant::Number(Number::I32(x))
+    }
 
-    fn try_into(self) -> Result<u32, Self::Error> {
-        match self {
-            Variant::U32(x) => Ok(*x),
-            Variant::I64(_x) => todo!(),
-            Variant::U64(_x) => todo!(),
-            _ => Err(()),
-        }
+    pub fn i64(x: i64) -> Variant {
+        Variant::Number(Number::I64(x))
+    }
+
+    pub fn u64(x: u64) -> Variant {
+        Variant::Number(Number::U64(x))
     }
 }
 
-impl TryInto<Vec<String>> for &Variant {
-    type Error = ();
+impl VariantTy {
+    pub const fn i32() -> Self {
+        VariantTy::Number(NumberTy::I32)
+    }
 
-    fn try_into(self) -> Result<Vec<String>, Self::Error> {
-        match self {
-            Variant::Str(s) => Ok(s
-                .split([',', ';'])
-                .filter(|s| !s.is_empty())
-                .map(|s| s.trim().to_owned())
-                .collect()),
-            Variant::StrList(list) => Ok(list.clone()),
-            _ => Err(()),
-        }
+    pub const fn u32() -> Self {
+        VariantTy::Number(NumberTy::U32)
+    }
+
+    pub const fn i64() -> Self {
+        VariantTy::Number(NumberTy::I64)
+    }
+
+    pub const fn u64() -> Self {
+        VariantTy::Number(NumberTy::U64)
     }
 }
 
@@ -496,37 +549,35 @@ impl Display for VariantTy {
             VariantTy::Bool => write!(f, "Bool"),
             VariantTy::Str => write!(f, "String"),
             VariantTy::StrList => write!(f, "List<String>"),
-            VariantTy::I32 => write!(f, "i32"),
-            VariantTy::I64 => write!(f, "i64"),
-            VariantTy::U8 => write!(f, "u8"),
-            VariantTy::U16 => write!(f, "u16"),
-            VariantTy::U32 => write!(f, "u32"),
-            VariantTy::U64 => write!(f, "u64"),
-            VariantTy::Enum { enum_uid } => write!(
-                f,
-                "enum {}",
-                uid_to_enum_name(*enum_uid).unwrap_or("Undefined")
-            ),
+            VariantTy::Number(ty) => write!(f, "{}", ty.as_ref()),
+            VariantTy::Enum { name, variants: _ } => write!(f, "enum {name}",),
+            VariantTy::MultiSelectionEnum { name, variants: _ } => {
+                write!(f, "multi-selection {name}",)
+            }
             VariantTy::Binary => write!(f, "Binary"),
-
-            #[cfg(not(feature = "rkyv"))]
-            VariantTy::List => write!(f, "List<Value>"),
+            VariantTy::List => write!(f, "List<Variant>"),
+            VariantTy::Map => write!(f, "Map<Variant, Variant>"),
+            VariantTy::Instant => write!(f, "Instant [ns]"),
+            VariantTy::SI { number_ty, unit } => write!(f, "{} [{unit}]", number_ty.as_ref()),
+            VariantTy::SIRange {
+                number_ty,
+                start_inclusive,
+                end_inclusive,
+                unit,
+            } => {
+                let start = if *start_inclusive { '[' } else { '(' };
+                let end = if *end_inclusive { ']' } else { ')' };
+                write!(f, "{start}{}{end} [{unit}]", number_ty.as_ref())
+            }
+            VariantTy::Date => write!(f, "NaiveDate"),
+            VariantTy::Time => write!(f, "NaiveTime"),
             VariantTy::DateTime => write!(f, "DateTime<RFC3339>"),
-            VariantTy::Instant { unit } => write!(f, "Instant [{unit}]"),
+            VariantTy::Money {
+                currency,
+                precision,
+            } => write!(f, "Money({currency}, {precision})"),
+            VariantTy::Tolerance(n) => write!(f, "Tolerance({})", n.as_ref()),
         }
-    }
-}
-
-impl Display for TimeUnit {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let unit = match self {
-            TimeUnit::Auto => "auto",
-            TimeUnit::Seconds => "s",
-            TimeUnit::Milliseconds => "ms",
-            TimeUnit::Microseconds => "us",
-            TimeUnit::Nanoseconds => "ns",
-        };
-        write!(f, "{unit}")
     }
 }
 
@@ -536,16 +587,11 @@ impl Display for Variant {
             Variant::Empty => write!(f, "Empty"),
             Variant::Bool(b) => write!(f, "{b}"),
             Variant::Str(s) => write!(f, "{s}"),
-            Variant::I32(x) => write!(f, "{x}"),
-            Variant::I64(x) => write!(f, "{x}"),
-            Variant::U8(x) => write!(f, "{x}"),
-            Variant::U16(x) => write!(f, "{x}"),
-            Variant::U32(x) => write!(f, "{x}"),
-            Variant::U64(x) => write!(f, "{x}"),
             Variant::StrList(list) => {
                 let mut iter = list.iter().peekable();
                 while let Some(s) = iter.next() {
                     if s.is_empty() {
+                        // write!(f, "''")?;
                         write!(f, "⛶")?;
                     } else {
                         write!(f, "{s}")?;
@@ -556,16 +602,9 @@ impl Display for Variant {
                 }
                 Ok(())
             }
-            Variant::Enum {
-                enum_uid,
-                discriminant,
-            } => match uid_to_variant_name(*enum_uid, *discriminant) {
-                Some(variant_name) => write!(f, "{variant_name}"),
-                None => write!(f, "Unknown enum {}", enum_uid),
-            },
+            Variant::Number(n) => write!(f, "{n}"),
             Variant::Binary(b) => write!(f, "Binary[{}B]", b.len()),
 
-            #[cfg(not(feature = "rkyv"))]
             Variant::List(list) => {
                 let mut iter = list.iter().peekable();
                 while let Some(s) = iter.next() {
@@ -576,8 +615,49 @@ impl Display for Variant {
                 }
                 Ok(())
             }
+            Variant::Instant(instant) => write!(f, "{} ns", instant.0),
+            Variant::SI { value, unit } => write!(f, "{value} {unit}"),
+            Variant::SIRange {
+                start,
+                start_inclusive,
+                end,
+                end_inclusive,
+                unit,
+            } => {
+                let start_sym = if *start_inclusive { '[' } else { '(' };
+                let end_sym = if *end_inclusive { ']' } else { ')' };
+                write!(f, "{start_sym}{start}, {end}{end_sym} [{unit}]")
+            }
+            Variant::Enum { name, selected, .. } => write!(f, "{name}::{selected}"),
+            Variant::MultiSelectionEnum { name, selected, .. } => write!(f, "{name}::{selected:?}"),
+            Variant::Map(m) => write!(f, "{:?}", m.0),
+            Variant::Date(date) => write!(f, "{date}"),
+            Variant::Time(time) => write!(f, "{time}"),
             Variant::DateTime(dt) => write!(f, "{dt}"),
-            Variant::Instant(instant) => write!(f, "{}ns", instant.0),
+            Variant::Money {
+                currency,
+                precision,
+                value,
+            } => {
+                let value = *value as f32 / 10u32.pow(*precision as u32) as f32;
+                write!(f, "{value} {currency}")
+            }
+            Variant::Tolerance {
+                min,
+                min_percent,
+                max,
+                max_percent,
+            } => {
+                write!(f, "{min}")?;
+                if *min_percent {
+                    write!(f, "%")?;
+                }
+                write!(f, ", {max}")?;
+                if *max_percent {
+                    write!(f, "%")?;
+                }
+                Ok(())
+            }
         }
     }
 }
@@ -629,57 +709,4 @@ impl Display for ArchivedVariant {
             }
         }
     }
-}
-
-pub fn register_enums(defs: HashMap<u32, EnumDefinition>) {
-    KNOWN_ENUMS.set(defs).unwrap();
-}
-
-pub fn name_to_uid<S: AsRef<str>>(name: S) -> Option<u32> {
-    let known_enums = KNOWN_ENUMS.get()?;
-    let name = name.as_ref();
-    known_enums
-        .iter()
-        .find(|&(_, def)| def.name == name)
-        .map(|(id, _)| *id)
-}
-
-pub fn uid_to_full_name(enum_uid: u32, discriminant: u32) -> Option<(&'static str, &'static str)> {
-    let known_enums = KNOWN_ENUMS.get()?;
-    known_enums.get(&enum_uid).and_then(|def| {
-        def.values
-            .iter()
-            .find(|(id, _)| *id == discriminant)
-            .map(|(_, variant_name)| (def.name.as_str(), variant_name.as_str()))
-    })
-}
-
-pub fn uid_to_variant_name(enum_uid: u32, discriminant: u32) -> Option<&'static str> {
-    let known_enums = KNOWN_ENUMS.get()?;
-    known_enums.get(&enum_uid).and_then(|def| {
-        def.values
-            .iter()
-            .find(|(id, _)| *id == discriminant)
-            .map(|(_, variant_name)| variant_name.as_str())
-    })
-}
-
-pub fn variant_name_to_discriminant<S: AsRef<str>>(enum_uid: u32, variant_name: S) -> Option<u32> {
-    let known_enums = KNOWN_ENUMS.get()?;
-    known_enums.get(&enum_uid).and_then(|def| {
-        def.values
-            .iter()
-            .find(|(_, n)| n == variant_name.as_ref())
-            .map(|(discriminant, _)| *discriminant)
-    })
-}
-
-pub fn uid_to_enum_name(enum_uid: u32) -> Option<&'static str> {
-    let known_enums = KNOWN_ENUMS.get()?;
-    known_enums.get(&enum_uid).map(|def| def.name.as_str())
-}
-
-pub fn variant_names(enum_uid: u32) -> Option<&'static [(u32, String)]> {
-    let known_enums = KNOWN_ENUMS.get()?;
-    known_enums.get(&enum_uid).map(|def| &def.values[..])
 }
