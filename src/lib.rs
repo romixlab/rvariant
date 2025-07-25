@@ -1,10 +1,11 @@
 mod number;
+pub mod util;
 
-pub use crate::number::{Number, NumberTy, F32, F64};
+pub use crate::number::{F32, F64, Number, NumberTy};
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveTime};
 use indexmap::IndexMap;
 pub use si_dynamic;
-use si_dynamic::{OhmF32, SIUnit};
+use si_dynamic::{BaseUnit, OhmF32, Quantity, Unit};
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -28,14 +29,14 @@ pub enum Variant {
     Number(Number),
     SI {
         value: Number,
-        unit: SIUnit,
+        unit: Unit,
     },
     SIRange {
         start: Number,
         start_inclusive: bool,
         end: Number,
         end_inclusive: bool,
-        unit: SIUnit,
+        unit: Unit,
     },
 
     Enum {
@@ -90,13 +91,13 @@ pub enum VariantTy {
     Number(NumberTy),
     SI {
         number_ty: NumberTy,
-        unit: SIUnit,
+        unit: Unit,
     },
     SIRange {
         number_ty: NumberTy,
         start_inclusive: bool,
         end_inclusive: bool,
-        unit: SIUnit,
+        unit: Unit,
     },
 
     Enum {
@@ -235,6 +236,24 @@ pub enum Error {
     Empty,
 }
 
+macro_rules! as_number {
+    ($name: ident, $ty:ty, $variant:ident) => {
+        pub fn $name(&self) -> Result<$ty, Error> {
+            if let Variant::Number(Number::$variant(x)) = self {
+                return Ok(*x);
+            }
+            if let Variant::Number(Number::$variant(x)) = self
+                .clone()
+                .convert_to(&VariantTy::Number(NumberTy::$variant))?
+            {
+                Ok(x)
+            } else {
+                Err(Error::Internal)
+            }
+        }
+    };
+}
+
 impl Variant {
     pub fn try_from_str<S: AsRef<str>>(value: S, to: &VariantTy) -> Result<Self, Error> {
         match to {
@@ -262,19 +281,42 @@ impl Variant {
             VariantTy::Number(number_ty) => {
                 Ok(Variant::Number(Number::try_from_str(value, *number_ty)?))
             }
-            VariantTy::SI { number_ty, unit } => {
-                if unit == &SIUnit::Ohm {
-                    let value = OhmF32::parse(value)
+            VariantTy::SI { number_ty: _, unit } => {
+                if unit.base == BaseUnit::Ohm {
+                    let quantity = OhmF32::parse(value)
                         .map_err(|e| Error::Verbatim(format!("SI Ohm parse failed {:?}", e)))?;
                     Ok(Variant::SI {
-                        value: Number::F32(value.0.into()), // TODO: SI: do not assume f32
+                        value: Number::F32(quantity.0.into()), // TODO: SI: do not assume f32
                         unit: unit.clone(),
                     })
                 } else {
-                    Ok(Variant::SI {
-                        value: Number::try_from_str(value, *number_ty)?,
-                        unit: unit.clone(), // TODO: parse unit
-                    })
+                    let quantity = Quantity::parse(value)
+                        .map_err(|e| Error::Verbatim(format!("SI value parse failed: {}", e)))?;
+                    // let value = Number::try_from_str(quantity.number, *number_ty)?; // TODO: SI: do not assume f32
+                    let value = Number::F32(
+                        quantity
+                            .as_f32()
+                            .map_err(|e| Error::Verbatim(format!("SI parse float error: {e}")))?
+                            .into(),
+                    );
+                    if quantity.unit.base == unit.base {
+                        Ok(Variant::SI {
+                            value,
+                            unit: unit.clone(),
+                        })
+                    } else if quantity.unit.base.name().eq_ignore_ascii_case("vdc")
+                        || quantity.unit.base.name().eq_ignore_ascii_case("vac")
+                    {
+                        Ok(Variant::SI {
+                            value,
+                            unit: Unit::base(BaseUnit::Volt),
+                        })
+                    } else {
+                        Err(Error::Verbatim(format!(
+                            "Wrong SI unit, expected: {unit}, got: {}",
+                            quantity.unit
+                        )))
+                    }
                 }
             }
             VariantTy::SIRange { .. } => Err(Error::Unimplemented),
@@ -363,7 +405,7 @@ impl Variant {
             VariantTy::Number(number_ty) => match self {
                 Variant::Number(n) => return Ok(Variant::Number(n.convert_to(*number_ty)?)),
                 Variant::SI { value, .. } => {
-                    return Ok(Variant::Number(value.convert_to(*number_ty)?))
+                    return Ok(Variant::Number(value.convert_to(*number_ty)?));
                 }
                 _ => {}
             },
@@ -421,31 +463,14 @@ impl Variant {
         }
     }
 
-    pub fn as_u8(&self) -> Result<u8, Error> {
-        if let Variant::Number(Number::U8(x)) = self {
-            return Ok(*x);
-        }
-        if let Variant::Number(Number::U8(x)) =
-            self.clone().convert_to(&VariantTy::Number(NumberTy::U8))?
-        {
-            Ok(x)
-        } else {
-            Err(Error::Internal)
-        }
-    }
-
-    pub fn as_u64(&self) -> Result<u64, Error> {
-        if let Variant::Number(Number::U64(x)) = self {
-            return Ok(*x);
-        }
-        if let Variant::Number(Number::U64(x)) =
-            self.clone().convert_to(&VariantTy::Number(NumberTy::U64))?
-        {
-            Ok(x)
-        } else {
-            Err(Error::Internal)
-        }
-    }
+    as_number!(as_i8, i8, I8);
+    as_number!(as_i16, i16, I16);
+    as_number!(as_i32, i32, I32);
+    as_number!(as_i64, i64, I64);
+    as_number!(as_u8, u8, U8);
+    as_number!(as_u16, u16, U16);
+    as_number!(as_u32, u32, U32);
+    as_number!(as_u64, u64, U64);
 
     pub fn as_date_time(&self) -> Result<DateTime<FixedOffset>, Error> {
         match self {
@@ -478,6 +503,30 @@ impl Variant {
                 Box::new(VariantTy::from(o)),
                 Box::new(VariantTy::Instant),
             )),
+        }
+    }
+
+    pub fn as_base_unit(&self, base_unit: BaseUnit) -> Result<Number, Error> {
+        if let Variant::SI { value, unit } = self {
+            if unit.base == base_unit {
+                Ok(*value)
+            } else {
+                Err(Error::Verbatim(format!(
+                    "expected unit: {base_unit}, found: {}",
+                    unit.base
+                )))
+            }
+        } else {
+            match self.clone().convert_to(&VariantTy::SI {
+                number_ty: NumberTy::F32,
+                unit: Unit::base(base_unit.clone()),
+            }) {
+                Ok(quantity) => quantity.as_base_unit(base_unit),
+                Err(e) => Err(Error::Verbatim(format!(
+                    "expected SI value, found {}, convert failed: {e:?}",
+                    VariantTy::from(self)
+                ))),
+            }
         }
     }
 
