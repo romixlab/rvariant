@@ -409,6 +409,7 @@ impl Variant {
                 }
                 _ => {}
             },
+            VariantTy::Str => return Ok(Variant::Str(self.to_string())),
             _ => {}
         }
         if let Variant::Str(s) = self {
