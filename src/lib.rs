@@ -62,7 +62,7 @@ pub enum Variant {
     Money {
         currency: Arc<String>,
         precision: u8,
-        value: u64,
+        value: i64,
     },
 
     Tolerance {
