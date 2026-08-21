@@ -464,6 +464,17 @@ impl Variant {
         }
     }
 
+    pub fn as_bool(&self) -> Result<bool, Error> {
+        if let Variant::Bool(v) = self {
+            return Ok(*v);
+        }
+        if let Variant::Bool(v) = self.clone().convert_to(&VariantTy::Bool)? {
+            Ok(v)
+        } else {
+            Err(Error::Internal)
+        }
+    }
+
     as_number!(as_i8, i8, I8);
     as_number!(as_i16, i16, I16);
     as_number!(as_i32, i32, I32);
