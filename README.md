@@ -63,3 +63,13 @@ Surrounding whitespace is ignored (except for `Str`); an empty input gives `Erro
 
 * `serde` - Serialize / Deserialize for all types. `Map` is serialized as a sequence of
   `[key, value]` pairs so that non-string keys work in JSON.
+* `rhai` - [rhai](https://rhai.rs) expressions over `Variant` values (`rvariant::script`), e.g. for
+  computed columns and filters. Units, currency and enum variants are preserved, string operands
+  are parsed as the other operand's type:
+
+  ```rust
+  let e = Expr::compile("r * qty > \"10k\" && price < \"5 EUR\"")?;
+  e.variables();                     // ["r", "qty", "price"] - for dependency tracking
+  e.eval(|name| row.get(name))?;     // Variant::Bool
+  ```
+

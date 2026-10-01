@@ -37,6 +37,10 @@ pub enum Error {
     /// Value (or input string) is empty.
     #[error("value is empty")]
     Empty,
+    /// Script compilation or evaluation failed.
+    #[cfg(feature = "rhai")]
+    #[error("{0}")]
+    Script(String),
     #[error("internal error")]
     Internal,
 }

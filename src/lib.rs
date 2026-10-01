@@ -17,6 +17,8 @@ mod literal;
 mod map;
 mod number;
 mod parse;
+#[cfg(feature = "rhai")]
+pub mod script;
 mod si;
 pub mod util;
 
