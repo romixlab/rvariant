@@ -1,18 +1,22 @@
 [package]
 name = "rvariant"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 license = "MIT"
 description = "Value type, similar to Qt's QVariant"
 authors = ["Roman Isaikin <romix.lab@gmail.com>"]
 repository = "https://github.com/romixlab/rvariant"
 
+[features]
+serde = ["dep:serde", "chrono/serde", "indexmap/serde"]
+
 [dependencies]
 serde = { version = "1", features = ["derive", "rc"], optional = true }
-rkyv = { version = "0.8", features = [], optional = true }
-parse_int = "0.9"
-num-traits = "0.2"
-chrono = { version = "0.4", features = ["serde"] }
-indexmap = { version = "2", features = ["serde"] }
+chrono = { version = "0.4" }
+indexmap = { version = "2" }
 si_dynamic = { path = "../si_dynamic", version = "0.1" }
 strum = { version = "0.28", features = ["derive"] }
+thiserror = "2"
+
+[dev-dependencies]
+serde_json = "1"
