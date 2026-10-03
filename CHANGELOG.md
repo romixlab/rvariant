@@ -3,6 +3,12 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- AGENTS.md and FEATURES.md (feature tracker with stable IDs).
+
 ## [0.3.0] - Unreleased
 
 ### Breaking changes
@@ -78,3 +84,7 @@ still deserialize.
 - `Map` failed to serialize to JSON.
 - `Bool` didn't accept `yes` / `no` / `on` / `off`, and `as_bool` rejected numbers.
 - `as_non_empty_str` returned `Unimplemented` for `Empty`.
+
+## [0.2.0] - 2026-09-07
+
+First release on crates.io. Earlier history is in git.
