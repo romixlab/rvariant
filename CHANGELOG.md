@@ -5,38 +5,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-### Breaking changes
-
-- `Enum` / `MultiSelectionEnum` / `Money` use `Arc<str>` for names and currencies and
-  `Arc<[String]>` for enum variants (previously `Arc<String>` / `Arc<Vec<String>>`).
-  Construct them with `"name".into()` or the `Variant::enumeration` / `Variant::money` helpers.
-- `Error` was rewritten with `thiserror`. It now implements `Display` and `std::error::Error`.
-  Its variants are `Parse`, `CannotConvert`, `OutOfRange`, `Lossy`, `UnitMismatch`,
-  `CurrencyMismatch`, `WrongEnumVariantName`, `Empty` and `Internal`, and the enum is
-  `#[non_exhaustive]`. The old `Unimplemented`, `Verbatim` and `ParseIntError`-style variants
-  are gone.
-- `convert_to` is strict. It returns `OutOfRange` or `Lossy` instead of wrapping, truncating or
-  going through a string round-trip. Use the new `convert_lossy` to round and saturate.
-- Parsing is strict too. Money and Instant reject excess decimal digits, and SI values with
-  the wrong unit are rejected.
-- Changed `Display` output (every format parses back to the same value):
-  - `Empty` displays as `""` instead of `"Empty"`.
-  - `Enum` shows only the selected variant (`Green`), and `MultiSelectionEnum` shows a
-    comma-separated list.
-  - `Binary` shows uppercase space-separated hex (`00 AA FF`).
-  - `List` / `Map` use JSON-like literals.
-  - `DateTime` uses RFC 3339.
-  - `Instant` uses the largest exact unit (`1.5 ms`).
-  - `Money` shows the exact decimal value followed by the currency.
-- `Map` is serialized as a sequence of `[key, value]` pairs, so non-string keys work in JSON.
-  The binary encoding (e.g. bincode) is unchanged.
-- Removed the `rkyv` feature, which didn't compile.
-- `chrono/serde` and `indexmap/serde` are only enabled by the `serde` feature.
-- Removed the `parse_int` and `num-traits` dependencies and added `thiserror`.
-- Depends on si_dynamic 0.2 (was 0.1).
-
-The `VariantTy` serde format is unchanged, so `VariantTy` values that were already stored
-still deserialize.
+## [0.3.0] - 2026-10-15
 
 ### Added
 
@@ -80,6 +49,38 @@ still deserialize.
 - `Map` failed to serialize to JSON.
 - `Bool` didn't accept `yes` / `no` / `on` / `off`, and `as_bool` rejected numbers.
 - `as_non_empty_str` returned `Unimplemented` for `Empty`.
+
+### Breaking changes
+
+- `Enum` / `MultiSelectionEnum` / `Money` use `Arc<str>` for names and currencies and
+  `Arc<[String]>` for enum variants (previously `Arc<String>` / `Arc<Vec<String>>`).
+  Construct them with `"name".into()` or the `Variant::enumeration` / `Variant::money` helpers.
+- `Error` was rewritten with `thiserror`. It now implements `Display` and `std::error::Error`.
+  Its variants are `Parse`, `CannotConvert`, `OutOfRange`, `Lossy`, `UnitMismatch`,
+  `CurrencyMismatch`, `WrongEnumVariantName`, `Empty` and `Internal`, and the enum is
+  `#[non_exhaustive]`. The old `Unimplemented`, `Verbatim` and `ParseIntError`-style variants
+  are gone.
+- `convert_to` is strict. It returns `OutOfRange` or `Lossy` instead of wrapping, truncating or
+  going through a string round-trip. Use the new `convert_lossy` to round and saturate.
+- Parsing is strict too. Money and Instant reject excess decimal digits, and SI values with
+  the wrong unit are rejected.
+- Changed `Display` output (every format parses back to the same value):
+  - `Empty` displays as `""` instead of `"Empty"`.
+  - `Enum` shows only the selected variant (`Green`), and `MultiSelectionEnum` shows a
+    comma-separated list.
+  - `Binary` shows uppercase space-separated hex (`00 AA FF`).
+  - `List` / `Map` use JSON-like literals.
+  - `DateTime` uses RFC 3339.
+  - `Instant` uses the largest exact unit (`1.5 ms`).
+  - `Money` shows the exact decimal value followed by the currency.
+- `Map` is serialized as a sequence of `[key, value]` pairs, so non-string keys work in JSON.
+  The binary encoding (e.g. bincode) is unchanged.
+- Removed the `rkyv` feature, which didn't compile.
+- `chrono/serde` and `indexmap/serde` are only enabled by the `serde` feature.
+- Removed the `parse_int` and `num-traits` dependencies and added `thiserror`.
+- Depends on si_dynamic 0.2 (was 0.1).
+The `VariantTy` serde format is unchanged, so `VariantTy` values that were already stored
+still deserialize.
 
 ## [0.2.0] - 2026-09-07
 
