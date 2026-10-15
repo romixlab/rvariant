@@ -14,9 +14,16 @@ serde = ["dep:serde", "chrono/serde", "indexmap/serde"]
 serde = { version = "1", features = ["derive", "rc"], optional = true }
 chrono = { version = "0.4" }
 indexmap = { version = "2" }
-si_dynamic = { path = "../si_dynamic", version = "0.1" }
+si_dynamic = { path = "../si_dynamic", version = "0.2" }
 strum = { version = "0.28", features = ["derive"] }
 thiserror = "2"
 
 [dev-dependencies]
 serde_json = "1"
+
+[profile.dev]
+split-debuginfo = "unpacked"
+
+[profile.deploy]
+inherits = "release"
+incremental = true

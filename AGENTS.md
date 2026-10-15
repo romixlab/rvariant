@@ -96,12 +96,9 @@ publish; the user's tooling does that.
 
 ## Versions
 
-Every commit with real work bumps the version in the same commit (manifest + CHANGELOG entry), so any build
-traces back to a commit:
-- Patch for fixes and small changes, minor for features or anything breaking before 1.0, major only when the
-  owner says so. In a workspace, only the crates that changed.
-- Docs-only, CI-only and no-behaviour-change refactors skip it; a burst of follow-up fixes shares one bump.
-- CLIs print version, git SHA and build time in `--version`, e.g. `tool 0.4.2 (a1b2c3d-dirty, built 3 Oct 2026
-  18:20)`: a small `build.rs` without extra crates (`git rev-parse --short HEAD`, `-dirty` when
-  `git status --porcelain` isn't empty, `rerun-if-changed` on `.git/HEAD` and `.git/index`, `unknown` without
-  git). Firmware reports the same through `fw_info`. When touching a CLI that lacks it, add it.
+Branch commits don't bump the version: their CHANGELOG entries go under `## [Unreleased]`, and `tpm land` turns
+them into `## [x.y.z] - date` with the manifest bump and a `vX.Y.Z` tag in one release commit (minor for
+Added/Changed/Removed, else patch; major only when the owner says so; see the tpm repo's CLAUDE.md "Landing bumps
+the version"). A version already set in the manifest ahead of a release is landed as is.
+- Docs-only, CI-only and no-behaviour-change refactors need no CHANGELOG entry.
+- A CLI built from this repo would print version, git SHA and build time in `--version`; the crate itself has none.

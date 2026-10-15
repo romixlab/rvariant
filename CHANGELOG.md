@@ -5,12 +5,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-### Added
-
-- AGENTS.md and FEATURES.md (feature tracker with stable IDs).
-
-## [0.3.0] - Unreleased
-
 ### Breaking changes
 
 - `Enum` / `MultiSelectionEnum` / `Money` use `Arc<str>` for names and currencies and
@@ -39,12 +33,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Removed the `rkyv` feature, which didn't compile.
 - `chrono/serde` and `indexmap/serde` are only enabled by the `serde` feature.
 - Removed the `parse_int` and `num-traits` dependencies and added `thiserror`.
+- Depends on si_dynamic 0.2 (was 0.1).
 
 The `VariantTy` serde format is unchanged, so `VariantTy` values that were already stored
 still deserialize.
 
 ### Added
 
+- AGENTS.md and FEATURES.md (feature tracker with stable IDs).
 - `Variant::try_from_str` supports every type: Date, Time, DateTime, Enum (case-insensitive,
   `Name::Variant`), MultiSelectionEnum, Binary, List, Map, SIRange, Tolerance and Money.
 - Integer parsing handles signs, `0x` / `0o` / `0b` prefixes, `_` separators and integral
