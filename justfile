@@ -13,7 +13,7 @@ lint:
     cargo clippy --all-features --all-targets -- -D warnings
     cargo fmt --check
 
-# A library has nothing to install: check that it builds in the deploy profile
+# rvariant is a library with no binary, so there is nothing to put on PATH: install is a build check in the deploy profile
 install:
     cargo build --profile deploy --all-features
 

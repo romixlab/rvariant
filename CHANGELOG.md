@@ -5,6 +5,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- `just install` comment says why it is only a build check: rvariant is a library with no binary to put on PATH.
+
 ## [0.3.0] - 2026-10-15
 
 ### Added
