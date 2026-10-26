@@ -14,7 +14,7 @@ serde = ["dep:serde", "chrono/serde", "indexmap/serde"]
 serde = { version = "1", features = ["derive", "rc"], optional = true }
 chrono = { version = "0.4" }
 indexmap = { version = "2" }
-si_dynamic = { path = "../si_dynamic", version = "0.2" }
+si_dynamic = { path = "../si_dynamic", version = "0.3" }
 strum = { version = "0.28", features = ["derive"] }
 thiserror = "2"
 
