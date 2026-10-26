@@ -56,20 +56,20 @@ fn samples() -> Vec<Variant> {
         Variant::si(-3i32, Unit::base(BaseUnit::Volt)),
         Variant::si(F32(25.0), Unit::base(BaseUnit::DegreeCelsius)),
         Variant::si(F64(2.5), km2),
-        Variant::si(F32(3.0), Unit::unit()),
+        Variant::si(F32(3.0), Unit::one()),
         Variant::SIRange {
             start: Number::F32((-40.0).into()),
             start_inclusive: true,
             end: Number::F32(85.0.into()),
             end_inclusive: false,
-            unit: Unit::base(BaseUnit::DegreeCelsius),
+            unit: BaseUnit::DegreeCelsius.into(),
         },
         Variant::SIRange {
             start: Number::I32(1),
             start_inclusive: false,
             end: Number::I32(10),
             end_inclusive: true,
-            unit: uf,
+            unit: uf.into(),
         },
         Variant::enumeration("Color", "Green", variants.clone()),
         Variant::MultiSelectionEnum {

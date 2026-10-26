@@ -1,10 +1,10 @@
 use crate::decimal::{format_decimal, parse_decimal_scaled};
 use crate::parse::match_enum_variant;
-use crate::si::{base_f64, base_matches, rescale, shift_number, unit_exp10};
+use crate::si::{base_f64, rescale, shift_between, shift_number, si_f64};
 use crate::{Error, F32, F64, Map, NanoSeconds, Number, NumberTy, Variant, VariantTy};
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveTime, Utc};
 use indexmap::IndexMap;
-use si_dynamic::{BaseUnit, Unit};
+use si_dynamic::{BaseUnit, UnitExpr};
 use std::cmp::Ordering;
 
 impl Variant {
@@ -237,11 +237,10 @@ impl Variant {
         match (self, other) {
             (Variant::Number(a), Variant::Number(b)) => a.cmp_value(b),
             (Variant::SI { value: a, unit: ua }, Variant::SI { value: b, unit: ub })
-                if ua.exp == ub.exp && base_matches(&ua.base, &ub.base) =>
+                if let Some(shift) = shift_between(ua, ub) =>
             {
-                let a = a.to_f64_lossy() * 10f64.powi(unit_exp10(ua));
-                let b = b.to_f64_lossy() * 10f64.powi(unit_exp10(ub));
-                a.total_cmp(&b)
+                let a = a.to_f64_lossy() * 10f64.powi(shift);
+                a.total_cmp(&b.to_f64_lossy())
             }
             (
                 Variant::Money {
@@ -403,9 +402,10 @@ impl Variant {
         }
     }
 
-    /// The value as one number in its unit without prefix, for search columns and comparisons:
-    /// 13.7 kΩ gives 13700 (Ω), 100 mm² gives 0.0001 (m²), -40 °C gives -40 (°C stays °C, no
-    /// kelvin), mass in kg. A `Number` gives itself, a `List` of exactly one value that value's.
+    /// The value as one number in coherent SI through the unit's scale, for search columns and
+    /// comparisons: 13.7 kΩ gives 13700 (Ω), 100 mm² gives 0.0001 (m²), 10 g gives 0.01 (kg),
+    /// 50 ppm gives 0.00005, 10 V/us gives 1e7 (V/s); -40 °C gives -40 (°C stays °C, no kelvin), an
+    /// unknown word stays in its unit without prefix. A `Number` gives itself, a `List` of exactly one value that value's.
     /// `None` for ranges and tolerances (see [`Variant::bounds_base_f64`]), for kinds without a
     /// number, and for NaN.
     ///
@@ -414,7 +414,7 @@ impl Variant {
     pub fn num_base_f64(&self) -> Option<f64> {
         let num = match self {
             Variant::Number(n) => base_f64(*n, 0),
-            Variant::SI { value, unit } => base_f64(*value, unit_exp10(unit)),
+            Variant::SI { value, unit } => si_f64(*value, unit),
             Variant::List(list) => match list.as_slice() {
                 [one] => return one.num_base_f64(),
                 _ => return None,
@@ -434,10 +434,7 @@ impl Variant {
         let (lo, hi) = match self {
             Variant::SIRange {
                 start, end, unit, ..
-            } => {
-                let exp10 = unit_exp10(unit);
-                (base_f64(*start, exp10), base_f64(*end, exp10))
-            }
+            } => (si_f64(*start, unit), si_f64(*end, unit)),
             Variant::Tolerance {
                 min,
                 min_percent,
@@ -470,14 +467,13 @@ impl Variant {
     pub fn as_base_unit(&self, base_unit: BaseUnit) -> Result<Number, Error> {
         match self {
             Variant::SI { value, unit } => {
-                let base = Unit::base(base_unit);
-                if unit.exp != 1 || !base_matches(&unit.base, &base.base) {
+                let base = UnitExpr::from(base_unit);
+                let Some(shift) = shift_between(unit, &base) else {
                     return Err(Error::UnitMismatch {
                         expected: Box::new(base),
                         found: Box::new(unit.clone()),
                     });
-                }
-                let shift = unit_exp10(unit);
+                };
                 if shift == 0 {
                     return Ok(*value);
                 }
@@ -486,7 +482,7 @@ impl Variant {
             }
             o => match o.convert_ref(&VariantTy::SI {
                 number_ty: NumberTy::F64,
-                unit: Unit::base(base_unit.clone()),
+                unit: base_unit.clone().into(),
             })? {
                 Variant::SI { value, .. } => Ok(value),
                 _ => Err(Error::Internal),

@@ -5,6 +5,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Compound units on si_dynamic 0.3: `50 ppm/°C`, `10 V/us` parse into SI values, `50ppm` parses (was "expected ppm, found ppm") (PARSE-4).
+- SI conversion between units of one dimension whose scales are powers of ten: `4.7 V/mA` parses for `kΩ`, `V/A` converts to `Ω` (CONV-6).
+
+### Changed
+
+- **Breaking:** on si_dynamic 0.3: `Variant::SI`, `SIRange`, `VariantTy::SI`, `SIRange` and `Error::UnitMismatch` take a `UnitExpr` in place of a `Unit`; `Variant::si` and `VariantTy::si` take `impl Into<UnitExpr>`, so a `Unit` or `BaseUnit` still works there. `BaseUnit::Kilogram` is gone: kg is `Unit::new(Prefix::Kilo, BaseUnit::Gram, 1)`.
+- **Breaking (serde):** the SI unit serializes as a `UnitExpr`: `{"unit":{"Unit":{"prefix":"Kilo","base":"Ohm","exp":1}}}` (was `{"unit":{"prefix":"Kilo","base":"Ohm","exp":1}}`), compound units as `{"Div":[a, b]}`, `{"Mul":[a, b]}`, `{"Pow":[a, n]}`. Stored `Variant` and `VariantTy` JSON with SI units needs converting once (SER-2).
+- `num_base_f64` and `bounds_base_f64` go through the unit's scale: a value in g gives kg (as before for kg), `ppm` gives the ratio (50 ppm → 5e-5); °C stays °C (CONV-7).
+
 ## [0.4.0] - 2026-10-26
 
 ### Added

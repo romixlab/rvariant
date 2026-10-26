@@ -47,7 +47,8 @@ One crate, edition 2024.
 - `src/display.rs` — `Display`, always parseable back by `try_from_str`.
 - `src/convert.rs` — `convert_to` (strict) and `convert_lossy`; accessors and `From` / `TryFrom` impls.
 - `src/number.rs` — `Number`, `NumberTy`, value comparison (`cmp_value`, `eq_value`).
-- `src/si.rs` — SI values on top of si_dynamic (prefix rescaling, resistor notation, grams).
+- `src/si.rs` — SI values on top of si_dynamic (`UnitExpr`; prefix rescaling, units of one dimension, resistor
+  notation, coherent SI through `Scale`).
 - `src/decimal.rs` — exact decimal handling for `Money`. `src/map.rs` — `Map` and its serde format.
 - `src/seed.rs` — `VariantSeed`: load a stored value and restore it against its `VariantTy` (feature `serde`).
 - `src/script.rs` — rhai expressions over `Variant` (feature `rhai`).

@@ -1,5 +1,5 @@
 use crate::VariantTy;
-use si_dynamic::Unit;
+use si_dynamic::UnitExpr;
 
 /// Errors produced by parsing, conversion and typed accessors.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -25,8 +25,8 @@ pub enum Error {
     /// Physical units are not compatible.
     #[error("unit mismatch: expected {expected}, found {found}")]
     UnitMismatch {
-        expected: Box<Unit>,
-        found: Box<Unit>,
+        expected: Box<UnitExpr>,
+        found: Box<UnitExpr>,
     },
     /// Money values with different currencies cannot be converted.
     #[error("currency mismatch: expected {expected:?}, found {found:?}")]

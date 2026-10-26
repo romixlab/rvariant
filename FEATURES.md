@@ -46,8 +46,10 @@ the code, the README, the changelog and the test suites; all 45 tests pass and c
   input for unsigned types is rejected, not wrapped.
 - ✅ **PARSE-3 Bool**: `true/false`, `yes/no`, `y/n`, `on/off`, `1/0`, `t/f`, `✓/✗`, case-insensitive.
 - ✅ **PARSE-4 SI values**: respects the column's number type and unit prefix, bare number = column unit, resistor
-  notation (`4k7`, `4700R`), `Vdc` / `Vac` / `Ohm` aliases, grams handled correctly (works around si_dynamic
-  UNIT-6), wrong unit rejected.
+  notation (`4k7`, `4700R`), `Vdc` / `Vac` / `Ohm` aliases, wrong unit rejected. On si_dynamic 0.3 (`src/si.rs`,
+  test `si_compound_units`): compound units (`50 ppm/°C`, `10 V/us`), `50ppm`, grams as kilo + gram, a value in
+  another unit of the same dimension when the scales are powers of ten (`4.7 V/mA` for `kΩ`); °C to K is
+  rejected (an offset).
 - ✅ **PARSE-5 SIRange** (`[1, 5] V`, `1V..5V`, `1 to 5`), bracket inclusivity must match the type.
 - ✅ **PARSE-6 Enum / MultiSelectionEnum**: case-insensitive, `Name::Variant`, separators `,` `;` `|`.
 - ✅ **PARSE-7 Money**: `12.34 EUR`, `EUR 12.34`, `1,234.56`, decimal comma; excess decimals rejected.
@@ -79,12 +81,17 @@ the code, the README, the changelog and the test suites; all 45 tests pass and c
 - ✅ **CONV-5 Accessors and `From` / `TryFrom`**: `as_i8` … `as_u128`, `as_f32`, `as_f64`, `as_bool`, `as_date`,
   `as_instant`, `as_bytes`, `as_list`, `as_map`, `as_enum_selected`, `as_non_empty_string`, ...; `From` for
   primitives, strings, chrono types, `Map`, `Vec`, `Option<T>`.
-- ✅ **CONV-7 Values in the unit without prefix** (0.4, `src/convert.rs`, `tests/base_values.rs`):
+- ✅ **CONV-7 Values in coherent SI** (0.4, `src/convert.rs`, `src/si.rs` `si_f64`, `tests/base_values.rs`):
   `Variant::num_base_f64()` for scalars (`Number`, `SI`, a one-element `List`) and `bounds_base_f64()` for
   `SIRange`, `Tolerance` (both sides percent or both absolute) and the span of a `List`; 13.7 kΩ → 13700,
-  100 mm² → 1e-4, °C stays °C, mass in kg. Shifted in decimal, so the result is the nearest f64 of the written
-  value (no f32 noise). For the `num` / `num_lo` / `num_hi` search columns of mx3's parameter facts.
-- 💡 **CONV-6 SI conversion between derived units** (`V/A` → `Ω`): needs si_dynamic EXPR-2.
+  100 mm² → 1e-4, 10 g → 0.01 (kg), 50 ppm → 5e-5, 10 V/us → 1e7, through the unit's `Scale` (si_dynamic 0.3);
+  °C stays °C (an offset), an unknown word stays in its unit without prefix. Shifted in decimal when the scale is
+  a power of ten, so the result is the nearest f64 of the written value (no f32 noise). For the `num` / `num_lo` /
+  `num_hi` search columns of mx3's parameter facts.
+- ✅ **CONV-6 SI conversion between derived units**: `V/A` ↔ `Ω`, `V/mA` → `kΩ` in `convert_to`, parsing,
+  `sort_cmp` and `as_base_unit`, when the dimensions match and the scales are powers of ten
+  (`si::shift_between`, test `si_compound_units`). Units with a `Factor` scale (registered `rpm`) don't convert
+  to other units yet.
 
 ## Serialization (`SER`)
 
@@ -94,7 +101,8 @@ the code, the README, the changelog and the test suites; all 45 tests pass and c
 - ✅ **SER-2 Golden JSON for every kind**: `tests/serde.rs` pins the stored JSON of one value of every `Variant`
   kind (all twelve number widths) and one type of every `VariantTy` kind, and fails when a new kind has no case.
   mx3 stores `Variant` in parameter facts and `VariantTy` in definitions, so a change there breaks stored data.
-  The SI unit shape (`{"prefix":"Kilo","base":"Ohm","exp":1}`) is si_dynamic's serde and pinned here too.
+  The SI unit is si_dynamic's `UnitExpr` (0.5: `{"Unit":{"prefix":"Kilo","base":"Ohm","exp":1}}`, compound
+  units `{"Div":[..,..]}`), pinned here and in si_dynamic's `tests/golden`.
 - ✅ **SER-3 Enum values store only the selection** (0.4): `Enum` / `MultiSelectionEnum` serialize as
   `{"Enum":{"selected":"Green"}}`; the name and variants belong to the type and come back with `Variant::restore`
   (case-insensitive, spelling of the type, unknown selection is an error) or `VariantSeed(&ty)` as a

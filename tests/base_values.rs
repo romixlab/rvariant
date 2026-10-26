@@ -1,11 +1,11 @@
 //! `num_base_f64` / `bounds_base_f64`: values in their unit without prefix, for the search columns of
 //! mx3's parameter facts (CONV-7). Equality is exact on purpose: the shift is done in decimal.
 
-use rvariant::si_dynamic::{BaseUnit, Prefix, Unit};
+use rvariant::si_dynamic::{BaseUnit, Prefix, Unit, UnitExpr};
 use rvariant::{F64, Number, NumberTy, Variant, VariantTy};
 
-fn unit(prefix: Prefix, base: BaseUnit, exp: i8) -> Unit {
-    Unit { prefix, base, exp }
+fn unit(prefix: Prefix, base: BaseUnit, exp: i8) -> UnitExpr {
+    Unit { prefix, base, exp }.into()
 }
 
 fn parse(s: &str, ty: &VariantTy) -> Variant {

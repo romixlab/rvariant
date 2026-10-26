@@ -1,13 +1,13 @@
 //! Regression tests for bugs found during review.
-use rvariant::si_dynamic::{BaseUnit, Prefix, Unit};
+use rvariant::si_dynamic::{BaseUnit, Prefix, Unit, UnitExpr};
 use rvariant::*;
 
-fn volt() -> Unit {
-    Unit::base(BaseUnit::Volt)
+fn volt() -> UnitExpr {
+    BaseUnit::Volt.into()
 }
 
-fn si_ty(number_ty: NumberTy, unit: Unit) -> VariantTy {
-    VariantTy::SI { number_ty, unit }
+fn si_ty(number_ty: NumberTy, unit: impl Into<UnitExpr>) -> VariantTy {
+    VariantTy::si(number_ty, unit)
 }
 
 #[test]
@@ -221,7 +221,7 @@ fn si_resistance_notation() {
 
 #[test]
 fn si_mass() {
-    let kg = Unit::base(BaseUnit::Kilogram);
+    let kg = Unit::new(Prefix::Kilo, BaseUnit::Gram, 1);
     let ty = si_ty(NumberTy::F64, kg.clone());
     assert_eq!(
         Variant::try_from_str("5kg", &ty),
@@ -297,12 +297,12 @@ fn map_json() {
 
 #[cfg(feature = "serde")]
 #[test]
-fn variant_ty_json_format_is_unchanged() {
-    // mx3 stores VariantTy as JSON in the database
+fn variant_ty_json_format() {
+    // mx3 stores VariantTy as JSON in the database; the unit became a UnitExpr in 0.5
     let ty = si_ty(NumberTy::F32, volt());
     assert_eq!(
         serde_json::to_string(&ty).unwrap(),
-        r#"{"SI":{"number_ty":"F32","unit":{"prefix":"Unit","base":"Volt","exp":1}}}"#
+        r#"{"SI":{"number_ty":"F32","unit":{"Unit":{"prefix":"Unit","base":"Volt","exp":1}}}}"#
     );
     let ty = VariantTy::money("$", 2);
     assert_eq!(
@@ -559,5 +559,56 @@ fn list_and_map_literals() {
     assert_eq!(
         Variant::StrList(vec!["a".into(), "b".into()]).convert_to(&VariantTy::List),
         Ok(Variant::List(vec![Variant::str("a"), Variant::str("b")]))
+    );
+}
+
+#[test]
+fn si_compound_units() {
+    // si_dynamic 0.3: unit expressions, ratios, derived units of one dimension (CONV-6)
+    let ppm = Unit::new(Prefix::Micro, BaseUnit::Ratio, 1);
+    let ppm_per_c = UnitExpr::from(ppm.clone()) / BaseUnit::DegreeCelsius;
+    let ty = si_ty(NumberTy::F64, ppm_per_c.clone());
+    let v = Variant::try_from_str("50 ppm/°C", &ty).unwrap();
+    assert_eq!(v, Variant::si(F64(50.0), ppm_per_c.clone()));
+    assert_eq!(v.to_string(), "50 ppm/°C");
+    assert_eq!(Variant::try_from_str(v.to_string(), &ty), Ok(v));
+
+    let ty = si_ty(NumberTy::F64, ppm.clone());
+    assert_eq!(
+        Variant::try_from_str("50ppm", &ty),
+        Ok(Variant::si(F64(50.0), ppm.clone()))
+    );
+    assert_eq!(Variant::si(F64(50.0), ppm).num_base_f64(), Some(0.00005));
+
+    let k_ohm = Unit::new(Prefix::Kilo, BaseUnit::Ohm, 1);
+    let ty = si_ty(NumberTy::F64, k_ohm.clone());
+    assert_eq!(
+        Variant::try_from_str("4.7 V/mA", &ty),
+        Ok(Variant::si(F64(4.7), k_ohm.clone()))
+    );
+    let v_per_a = UnitExpr::from(BaseUnit::Volt) / BaseUnit::Ampere;
+    let v = Variant::si(F64(4700.0), v_per_a);
+    assert_eq!(v.convert_to(&ty), Ok(Variant::si(F64(4.7), k_ohm)));
+
+    let slew = UnitExpr::from(BaseUnit::Volt) / Unit::new(Prefix::Micro, BaseUnit::Second, 1);
+    let ty = si_ty(NumberTy::F64, slew.clone());
+    let v = Variant::try_from_str("10 V/us", &ty).unwrap();
+    assert_eq!(v, Variant::si(F64(10.0), slew));
+    assert_eq!(v.num_base_f64(), Some(1e7));
+
+    // °C has an offset: no silent conversion to K
+    let ty = si_ty(NumberTy::F64, BaseUnit::Kelvin);
+    assert!(Variant::try_from_str("25 °C", &ty).is_err());
+}
+
+#[test]
+fn si_mass_base_is_kg() {
+    let g = Unit::base(BaseUnit::Gram);
+    assert_eq!(Variant::si(F64(10.0), g.clone()).num_base_f64(), Some(0.01));
+    let kg = Unit::new(Prefix::Kilo, BaseUnit::Gram, 1);
+    assert_eq!(Variant::si(F64(2.5), kg.clone()).num_base_f64(), Some(2.5));
+    assert_eq!(
+        Variant::si(F64(2.5), kg).as_base_unit(BaseUnit::Gram),
+        Ok(Number::F64(2500.0.into()))
     );
 }

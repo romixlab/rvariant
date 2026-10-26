@@ -29,7 +29,7 @@ pub use crate::number::{F32, F64, Number, NumberTy};
 pub use crate::seed::VariantSeed;
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveTime};
 pub use si_dynamic;
-use si_dynamic::Unit;
+use si_dynamic::UnitExpr;
 use std::sync::Arc;
 use strum::{AsRefStr, EnumDiscriminants, EnumIter};
 
@@ -45,14 +45,14 @@ pub enum Variant {
     /// Physical quantity, `value` is expressed in `unit` (including its prefix).
     SI {
         value: Number,
-        unit: Unit,
+        unit: UnitExpr,
     },
     SIRange {
         start: Number,
         start_inclusive: bool,
         end: Number,
         end_inclusive: bool,
-        unit: Unit,
+        unit: UnitExpr,
     },
 
     /// With `serde` only `selected` is stored: `name` and `variants` belong to the type, not to the
@@ -111,13 +111,13 @@ pub enum VariantTy {
     Number(NumberTy),
     SI {
         number_ty: NumberTy,
-        unit: Unit,
+        unit: UnitExpr,
     },
     SIRange {
         number_ty: NumberTy,
         start_inclusive: bool,
         end_inclusive: bool,
-        unit: Unit,
+        unit: UnitExpr,
     },
 
     Enum {
@@ -337,10 +337,10 @@ impl Variant {
         Variant::Number(Number::F64(F64(x)))
     }
 
-    pub fn si(value: impl Into<Number>, unit: Unit) -> Variant {
+    pub fn si(value: impl Into<Number>, unit: impl Into<UnitExpr>) -> Variant {
         Variant::SI {
             value: value.into(),
-            unit,
+            unit: unit.into(),
         }
     }
 
@@ -406,8 +406,11 @@ impl VariantTy {
         VariantTy::Number(NumberTy::F64)
     }
 
-    pub fn si(number_ty: NumberTy, unit: Unit) -> Self {
-        VariantTy::SI { number_ty, unit }
+    pub fn si(number_ty: NumberTy, unit: impl Into<UnitExpr>) -> Self {
+        VariantTy::SI {
+            number_ty,
+            unit: unit.into(),
+        }
     }
 
     pub fn enumeration(name: impl Into<Arc<str>>, variants: impl Into<Arc<[String]>>) -> Self {

@@ -4,7 +4,7 @@ use crate::literal::parse_literal;
 use crate::si::parse_si;
 use crate::{Error, NanoSeconds, Number, NumberTy, Variant, VariantTy};
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
-use si_dynamic::Unit;
+use si_dynamic::UnitExpr;
 
 const DATE_FORMATS: &[&str] = &["%Y-%m-%d", "%Y/%m/%d", "%d.%m.%Y"];
 const TIME_FORMATS: &[&str] = &["%H:%M:%S%.f", "%H:%M"];
@@ -360,7 +360,7 @@ fn parse_si_range(
     number_ty: NumberTy,
     start_inclusive: bool,
     end_inclusive: bool,
-    unit: &Unit,
+    unit: &UnitExpr,
 ) -> Result<Variant, Error> {
     let s = input.trim();
     non_empty(s)?;

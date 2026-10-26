@@ -4,7 +4,7 @@
 #![cfg(feature = "serde")]
 
 use chrono::{NaiveDate, NaiveTime};
-use rvariant::si_dynamic::{BaseUnit, Prefix, Unit};
+use rvariant::si_dynamic::{BaseUnit, Prefix, Unit, UnitExpr};
 use rvariant::{
     Map, NanoSeconds, Number, NumberTy, Variant, VariantSeed, VariantTy, VariantTyDiscriminants,
 };
@@ -12,12 +12,8 @@ use serde::de::DeserializeSeed;
 use std::collections::BTreeSet;
 use strum::IntoEnumIterator;
 
-fn unit(prefix: Prefix, base: BaseUnit) -> Unit {
-    Unit {
-        prefix,
-        base,
-        exp: 1,
-    }
+fn unit(prefix: Prefix, base: BaseUnit) -> UnitExpr {
+    Unit::new(prefix, base, 1).into()
 }
 
 fn colors() -> VariantTy {
@@ -77,7 +73,7 @@ fn golden_values() -> Vec<(Variant, &'static str)> {
         (Variant::f64(13.7), r#"{"Number":{"F64":13.7}}"#),
         (
             Variant::si(13.7f64, k_ohm.clone()),
-            r#"{"SI":{"value":{"F64":13.7},"unit":{"prefix":"Kilo","base":"Ohm","exp":1}}}"#,
+            r#"{"SI":{"value":{"F64":13.7},"unit":{"Unit":{"prefix":"Kilo","base":"Ohm","exp":1}}}}"#,
         ),
         (
             Variant::SIRange {
@@ -87,7 +83,7 @@ fn golden_values() -> Vec<(Variant, &'static str)> {
                 end_inclusive: false,
                 unit: unit(Prefix::Unit, BaseUnit::DegreeCelsius),
             },
-            r#"{"SIRange":{"start":{"F64":-55.0},"start_inclusive":true,"end":{"F64":125.0},"end_inclusive":false,"unit":{"prefix":"Unit","base":"DegreeCelsius","exp":1}}}"#,
+            r#"{"SIRange":{"start":{"F64":-55.0},"start_inclusive":true,"end":{"F64":125.0},"end_inclusive":false,"unit":{"Unit":{"prefix":"Unit","base":"DegreeCelsius","exp":1}}}}"#,
         ),
         (
             Variant::Enum {
@@ -159,7 +155,7 @@ fn golden_types() -> Vec<(VariantTy, &'static str)> {
         (VariantTy::u16(), r#"{"Number":"U16"}"#),
         (
             VariantTy::si(NumberTy::F64, unit(Prefix::Kilo, BaseUnit::Ohm)),
-            r#"{"SI":{"number_ty":"F64","unit":{"prefix":"Kilo","base":"Ohm","exp":1}}}"#,
+            r#"{"SI":{"number_ty":"F64","unit":{"Unit":{"prefix":"Kilo","base":"Ohm","exp":1}}}}"#,
         ),
         (
             VariantTy::SIRange {
@@ -168,7 +164,7 @@ fn golden_types() -> Vec<(VariantTy, &'static str)> {
                 end_inclusive: true,
                 unit: unit(Prefix::Unit, BaseUnit::DegreeCelsius),
             },
-            r#"{"SIRange":{"number_ty":"F32","start_inclusive":true,"end_inclusive":true,"unit":{"prefix":"Unit","base":"DegreeCelsius","exp":1}}}"#,
+            r#"{"SIRange":{"number_ty":"F32","start_inclusive":true,"end_inclusive":true,"unit":{"Unit":{"prefix":"Unit","base":"DegreeCelsius","exp":1}}}}"#,
         ),
         (
             colors(),
