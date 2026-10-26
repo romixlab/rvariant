@@ -130,6 +130,10 @@ the code, the README, the changelog and the test suites; all 45 tests pass and c
   egui_tabular and mx3 can depend on a crates.io version.
 - 💡 **PRJ-3 Fuzzing** `try_from_str` and the round-trip guarantee (`cargo fuzz`), since it parses user and CSV
   input.
+- ✅ **PRJ-4 Builds as a git dependency**: `si_dynamic` is a normal registry dependency (`version = "0.3"`,
+  `default-features = false`) plus `[patch.crates-io] si_dynamic = { path = "../si_dynamic" }` for local,
+  same-checkout builds; a consumer that takes `rvariant` by git (mx3, until publish) patches `si_dynamic` itself,
+  e.g. by git tag `v0.3.0` (`Cargo.toml`).
 
 ## Dropped and superseded
 

@@ -14,12 +14,17 @@ serde = ["dep:serde", "chrono/serde", "indexmap/serde"]
 serde = { version = "1", features = ["derive", "rc"], optional = true }
 chrono = { version = "0.4" }
 indexmap = { version = "2" }
-si_dynamic = { path = "../si_dynamic", version = "0.3" }
+si_dynamic = { version = "0.3", default-features = false }
 strum = { version = "0.28", features = ["derive"] }
 thiserror = "2"
 
 [dev-dependencies]
 serde_json = "1"
+
+# Applies only when rvariant is the workspace root; a consumer that takes rvariant by git must patch
+# si_dynamic itself (e.g. by git tag v0.3.0).
+[patch.crates-io]
+si_dynamic = { path = "../si_dynamic" }
 
 [profile.dev]
 split-debuginfo = "unpacked"
