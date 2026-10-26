@@ -5,6 +5,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Breaking changes
+
+- `Enum` and `MultiSelectionEnum` values serialize only their selection: `{"Enum":{"selected":"Green"}}` instead of `{"Enum":{"name":"Color","selected":"Green","variants":[...]}}` (SER-3). A loaded value has an empty name and no variants until `Variant::restore(ty)` (or `VariantSeed(&ty)`) gives them back from its `VariantTy`. JSON stored by 0.3 still loads (the extra fields are ignored); restore it the same way. Positional formats (msgpack `to_vec`, bincode) lose the two fields too, so both ends of such a wire need 0.4 and the receiver restores enum values from their type. Version 0.4.0.
+
+### Added
+
+- `Variant::restore(ty)` and `VariantSeed`, a `DeserializeSeed` that loads a value and restores it against its type (SER-3).
+- Golden JSON tests for every `Variant` and `VariantTy` kind, `tests/serde.rs` (SER-2).
+
 ## [0.3.2] - 2026-10-22
 
 ### Added

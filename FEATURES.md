@@ -86,6 +86,16 @@ the code, the README, the changelog and the test suites; all 45 tests pass and c
 - ✅ **SER-1 serde** (feature `serde`): all types; `Map` as a sequence of `[key, value]` pairs so non-string keys
   work in JSON. The `VariantTy` serde format is unchanged since 0.2 (`tests/regressions.rs`
   `variant_ty_json_format_is_unchanged`).
+- ✅ **SER-2 Golden JSON for every kind**: `tests/serde.rs` pins the stored JSON of one value of every `Variant`
+  kind (all twelve number widths) and one type of every `VariantTy` kind, and fails when a new kind has no case.
+  mx3 stores `Variant` in parameter facts and `VariantTy` in definitions, so a change there breaks stored data.
+  The SI unit shape (`{"prefix":"Kilo","base":"Ohm","exp":1}`) is si_dynamic's serde and pinned here too.
+- ✅ **SER-3 Enum values store only the selection** (0.4): `Enum` / `MultiSelectionEnum` serialize as
+  `{"Enum":{"selected":"Green"}}`; the name and variants belong to the type and come back with `Variant::restore`
+  (case-insensitive, spelling of the type, unknown selection is an error) or `VariantSeed(&ty)` as a
+  `DeserializeSeed`. A variant added to the type later shows up on load; 0.3 JSON with `name` / `variants` still
+  loads (they are ignored). Enum values nested in `List` / `Map` have no type to restore from and stay as loaded
+  (empty name, no variants). Positional formats (msgpack `to_vec`, bincode) carry the same two fields less.
 
 ## Scripting (`SCR`)
 

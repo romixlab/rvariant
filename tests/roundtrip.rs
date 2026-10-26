@@ -182,10 +182,11 @@ fn serde_json_roundtrip() {
         {
             continue;
         }
+        // Enum values store only the selection and get the rest back from their type (SER-3)
+        let ty = v.ty();
         let json = serde_json::to_string(&v).unwrap();
         let back: Variant = serde_json::from_str(&json).unwrap();
-        assert_eq!(back, v, "{json}");
-        let ty = v.ty();
+        assert_eq!(back.restore(&ty), Ok(v), "{json}");
         let json = serde_json::to_string(&ty).unwrap();
         assert_eq!(serde_json::from_str::<VariantTy>(&json).unwrap(), ty);
     }

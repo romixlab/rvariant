@@ -17,12 +17,16 @@ mod literal;
 mod map;
 mod number;
 mod parse;
+#[cfg(feature = "serde")]
+mod seed;
 mod si;
 pub mod util;
 
 pub use crate::error::Error;
 pub use crate::map::Map;
 pub use crate::number::{F32, F64, Number, NumberTy};
+#[cfg(feature = "serde")]
+pub use crate::seed::VariantSeed;
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveTime};
 pub use si_dynamic;
 use si_dynamic::Unit;
@@ -51,14 +55,21 @@ pub enum Variant {
         unit: Unit,
     },
 
+    /// With `serde` only `selected` is stored: `name` and `variants` belong to the type, not to the
+    /// value, and come back from the [`VariantTy`] with [`Variant::restore`] (or [`VariantSeed`]).
     Enum {
+        #[cfg_attr(feature = "serde", serde(skip))]
         name: Arc<str>,
         selected: String,
+        #[cfg_attr(feature = "serde", serde(skip))]
         variants: Arc<[String]>,
     },
+    /// Stored like [`Variant::Enum`]: only `selected`.
     MultiSelectionEnum {
+        #[cfg_attr(feature = "serde", serde(skip))]
         name: Arc<str>,
         selected: Vec<String>,
+        #[cfg_attr(feature = "serde", serde(skip))]
         variants: Arc<[String]>,
     },
 
@@ -276,6 +287,25 @@ impl Variant {
                 max: Number::default_of(*ty),
                 max_percent: false,
             },
+        }
+    }
+
+    /// Gives an `Enum` / `MultiSelectionEnum` value its name and variants back from `ty`.
+    ///
+    /// With `serde` these values store only their selection (the variants belong to the type), so a
+    /// loaded one has an empty name and no variants until it is restored. The selection must name
+    /// variants of `ty` (case-insensitive, the result uses the spelling of `ty`), otherwise
+    /// [`Error::WrongEnumVariantName`]; an enum value and an enum type of the other kind convert as in
+    /// [`Variant::convert_to`]. Every other value, and an enum value for a type that is not an enum,
+    /// comes back unchanged: a stored value is never reinterpreted by a later change of its type.
+    /// Values nested in `List` / `Map` have no type to restore from and stay as loaded.
+    pub fn restore(self, ty: &VariantTy) -> Result<Variant, Error> {
+        match (&self, ty) {
+            (
+                Variant::Enum { .. } | Variant::MultiSelectionEnum { .. },
+                VariantTy::Enum { .. } | VariantTy::MultiSelectionEnum { .. },
+            ) => self.convert_to(ty),
+            _ => Ok(self),
         }
     }
 

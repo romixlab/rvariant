@@ -62,4 +62,6 @@ Surrounding whitespace is ignored (except for `Str`); an empty input gives `Erro
 ## Features
 
 * `serde` - Serialize / Deserialize for all types. `Map` is serialized as a sequence of
-  `[key, value]` pairs so that non-string keys work in JSON.
+  `[key, value]` pairs so that non-string keys work in JSON. `Enum` / `MultiSelectionEnum` values
+  store only their selection; load them with `VariantSeed(&ty)` or call `Variant::restore(ty)` to
+  get the name and variants back from the type. `tests/serde.rs` pins the JSON of every kind.

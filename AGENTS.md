@@ -49,8 +49,10 @@ One crate, edition 2024.
 - `src/number.rs` — `Number`, `NumberTy`, value comparison (`cmp_value`, `eq_value`).
 - `src/si.rs` — SI values on top of si_dynamic (prefix rescaling, resistor notation, grams).
 - `src/decimal.rs` — exact decimal handling for `Money`. `src/map.rs` — `Map` and its serde format.
+- `src/seed.rs` — `VariantSeed`: load a stored value and restore it against its `VariantTy` (feature `serde`).
 - `src/script.rs` — rhai expressions over `Variant` (feature `rhai`).
-- `tests/regressions.rs` (one test per fixed bug), `tests/roundtrip.rs` (display → parse), `tests/script.rs`.
+- `tests/regressions.rs` (one test per fixed bug), `tests/roundtrip.rs` (display → parse), `tests/serde.rs`
+  (golden JSON of every kind: the stored format), `tests/script.rs`.
 
 si_dynamic (`../si_dynamic`, taken by path) does the unit parsing. Fix unit bugs there, with its own FEATURES.md
 and CHANGELOG.md, rather than working around them here. egui_tabular and mx3 depend on this crate: after an API or
