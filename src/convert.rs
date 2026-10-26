@@ -214,16 +214,16 @@ impl Variant {
             (
                 Variant::Tolerance {
                     min,
-                    min_percent,
+                    min_unit,
                     max,
-                    max_percent,
+                    max_unit,
                 },
                 VariantTy::Tolerance(ty),
             ) => Ok(Variant::Tolerance {
                 min: num(min, *ty)?,
-                min_percent,
+                min_unit,
                 max: num(max, *ty)?,
-                max_percent,
+                max_unit,
             }),
 
             (_, to) => Err(Error::cannot_convert(&from, to)),
@@ -425,8 +425,9 @@ impl Variant {
     }
 
     /// The lowest and highest value in the unit without prefix (as in [`Variant::num_base_f64`]):
-    /// an `SIRange` gives its ends (inclusive or not), a `Tolerance` its deviations (in percent, or
-    /// absolute when both are absolute; `None` when one is in percent and the other not), a `List`
+    /// an `SIRange` gives its ends (inclusive or not), a `Tolerance` its deviations through their units
+    /// (`±5%` gives -0.05 and 0.05, `±0.25pF` -2.5e-13 and 2.5e-13, bare numbers themselves; `None` when
+    /// the two units don't convert into each other, or one side is bare and the other not), a `List`
     /// the span of its elements (scalars and ranges). `None` for scalars (they have
     /// [`Variant::num_base_f64`]), an empty list, a list with an element without a number, kinds
     /// without a number, and NaN.
@@ -437,10 +438,14 @@ impl Variant {
             } => (si_f64(*start, unit), si_f64(*end, unit)),
             Variant::Tolerance {
                 min,
-                min_percent,
+                min_unit,
                 max,
-                max_percent,
-            } if min_percent == max_percent => (base_f64(*min, 0), base_f64(*max, 0)),
+                max_unit,
+            } if (*min_unit == UnitExpr::one()) == (*max_unit == UnitExpr::one())
+                && shift_between(min_unit, max_unit).is_some() =>
+            {
+                (si_f64(*min, min_unit), si_f64(*max, max_unit))
+            }
             Variant::List(list) => {
                 let mut span: Option<(f64, f64)> = None;
                 for v in list {

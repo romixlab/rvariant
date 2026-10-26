@@ -9,11 +9,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Compound units on si_dynamic 0.3: `50 ppm/°C`, `10 V/us` parse into SI values, `50ppm` parses (was "expected ppm, found ppm") (PARSE-4).
 - SI conversion between units of one dimension whose scales are powers of ten: `4.7 V/mA` parses for `kΩ`, `V/A` converts to `Ω` (CONV-6).
+- Tolerances with units: `±0.25pF`, `±50ppm/°C`, `-20%, +80%` (PARSE-11).
 
 ### Changed
 
 - **Breaking:** on si_dynamic 0.3: `Variant::SI`, `SIRange`, `VariantTy::SI`, `SIRange` and `Error::UnitMismatch` take a `UnitExpr` in place of a `Unit`; `Variant::si` and `VariantTy::si` take `impl Into<UnitExpr>`, so a `Unit` or `BaseUnit` still works there. `BaseUnit::Kilogram` is gone: kg is `Unit::new(Prefix::Kilo, BaseUnit::Gram, 1)`.
 - **Breaking (serde):** the SI unit serializes as a `UnitExpr`: `{"unit":{"Unit":{"prefix":"Kilo","base":"Ohm","exp":1}}}` (was `{"unit":{"prefix":"Kilo","base":"Ohm","exp":1}}`), compound units as `{"Div":[a, b]}`, `{"Mul":[a, b]}`, `{"Pow":[a, n]}`. Stored `Variant` and `VariantTy` JSON with SI units needs converting once (SER-2).
+- **Breaking:** `Variant::Tolerance` has `min_unit` and `max_unit` (`UnitExpr`) in place of `min_percent` and `max_percent`: percent is `Unit::new(Prefix::Centi, BaseUnit::Ratio, 1)`, a bare number `UnitExpr::one()` (PARSE-11).
+- **Breaking (serde):** a tolerance serializes as `{"Tolerance":{"min":{"F64":-5.0},"min_unit":{"Unit":{"prefix":"Centi","base":"Ratio","exp":1}},"max":{"F64":5.0},"max_unit":{"Unit":{"prefix":"Centi","base":"Ratio","exp":1}}}}` (was `"min_percent":true`, `"max_percent":true`); stored tolerances need converting once: `true` → that `%` unit, `false` → `{"Unit":{"prefix":"Unit","base":"Ratio","exp":1}}` (SER-2).
+- `bounds_base_f64` of a percent tolerance gives the ratio: `±5%` → (-0.05, 0.05), was (-5, 5); an absolute one (`±0.25pF`) gives farads (PARSE-11, CONV-7).
 - `num_base_f64` and `bounds_base_f64` go through the unit's scale: a value in g gives kg (as before for kg), `ppm` gives the ratio (50 ppm → 5e-5); °C stays °C (CONV-7).
 
 ## [0.4.0] - 2026-10-26

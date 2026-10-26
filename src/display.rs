@@ -3,6 +3,7 @@ use crate::literal::{write_list, write_map};
 use crate::si::unit_suffix;
 use crate::{Number, Variant, VariantTy};
 use chrono::SecondsFormat;
+use si_dynamic::UnitExpr;
 use std::fmt::{Display, Formatter, Write};
 
 /// Placeholder used for empty strings in `StrList`.
@@ -45,8 +46,13 @@ impl Display for VariantTy {
     }
 }
 
-fn percent(is_percent: bool) -> &'static str {
-    if is_percent { "%" } else { "" }
+/// Unit written right after a tolerance's number (`5%`, `0.25pF`), "" for a bare number.
+fn tight_unit(unit: &UnitExpr) -> String {
+    if *unit == UnitExpr::one() {
+        String::new()
+    } else {
+        unit.to_string()
+    }
 }
 
 impl Display for Variant {
@@ -129,15 +135,15 @@ impl Display for Variant {
             }
             Variant::Tolerance {
                 min,
-                min_percent,
+                min_unit,
                 max,
-                max_percent,
+                max_unit,
             } => {
-                let symmetric = min_percent == max_percent
+                let symmetric = min_unit == max_unit
                     && min.to_f64_lossy() == -max.to_f64_lossy()
                     && max.cmp_value(&Number::U8(0)).is_ge();
                 if symmetric {
-                    write!(f, "±{max}{}", percent(*max_percent))
+                    write!(f, "±{max}{}", tight_unit(max_unit))
                 } else {
                     let plus = if max.cmp_value(&Number::U8(0)).is_ge() {
                         "+"
@@ -147,8 +153,8 @@ impl Display for Variant {
                     write!(
                         f,
                         "{min}{}/{plus}{max}{}",
-                        percent(*min_percent),
-                        percent(*max_percent)
+                        tight_unit(min_unit),
+                        tight_unit(max_unit)
                     )
                 }
             }

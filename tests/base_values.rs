@@ -79,27 +79,27 @@ fn si_ranges_give_bounds() {
 fn tolerances_give_bounds() {
     let ty = VariantTy::Tolerance(NumberTy::F64);
     let v = parse("±5%", &ty);
-    assert_eq!(v.bounds_base_f64(), Some((-5.0, 5.0)));
+    assert_eq!(v.bounds_base_f64(), Some((-0.05, 0.05)));
     assert_eq!(v.num_base_f64(), None);
+    assert_eq!(parse("-10%/+20%", &ty).bounds_base_f64(), Some((-0.1, 0.2)));
     assert_eq!(
-        parse("-10%/+20%", &ty).bounds_base_f64(),
-        Some((-10.0, 20.0))
+        parse("±50ppm/°C", &ty).bounds_base_f64(),
+        Some((-5e-5, 5e-5))
     );
-    let absolute = Variant::Tolerance {
-        min: f64(-0.25),
-        min_percent: false,
-        max: f64(0.25),
-        max_percent: false,
-    };
-    assert_eq!(absolute.bounds_base_f64(), Some((-0.25, 0.25)));
-    // percent on one side and absolute on the other has no common unit
-    let mixed = Variant::Tolerance {
-        min: f64(-1.0),
-        min_percent: true,
-        max: f64(0.25),
-        max_percent: false,
-    };
-    assert_eq!(mixed.bounds_base_f64(), None);
+    assert_eq!(
+        parse("±0.25pF", &ty).bounds_base_f64(),
+        Some((-2.5e-13, 2.5e-13))
+    );
+    // percent on one side and ppm on the other: one dimension
+    assert_eq!(
+        parse("-50ppm/+1%", &ty).bounds_base_f64(),
+        Some((-5e-5, 0.01))
+    );
+    assert_eq!(parse("±0.25", &ty).bounds_base_f64(), Some((-0.25, 0.25)));
+    // percent on one side and a bare (absolute) number on the other has no common unit
+    assert_eq!(parse("-1%/+0.25", &ty).bounds_base_f64(), None);
+    // nor have pF and %
+    assert_eq!(parse("-1%/+0.25pF", &ty).bounds_base_f64(), None);
 }
 
 #[test]

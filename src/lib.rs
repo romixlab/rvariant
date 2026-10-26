@@ -90,12 +90,14 @@ pub enum Variant {
         value: i64,
     },
 
-    /// Signed deviations from a nominal value, e.g. `±5%` is `min: -5, max: 5`, both in percent.
+    /// Signed deviations from a nominal value, each in its own unit: `±5%` is `min: -5, max: 5`, both
+    /// in `%` (centi + [`BaseUnit::Ratio`](si_dynamic::BaseUnit::Ratio)), `±0.25pF` is in `pF`,
+    /// `±50ppm/°C` in `ppm/°C`. A bare number has [`UnitExpr::one`]: absolute, in the nominal's unit.
     Tolerance {
         min: Number,
-        min_percent: bool,
+        min_unit: UnitExpr,
         max: Number,
-        max_percent: bool,
+        max_unit: UnitExpr,
     },
 }
 
@@ -283,9 +285,9 @@ impl Variant {
             },
             VariantTy::Tolerance(ty) => Variant::Tolerance {
                 min: Number::default_of(*ty),
-                min_percent: false,
+                min_unit: UnitExpr::one(),
                 max: Number::default_of(*ty),
-                max_percent: false,
+                max_unit: UnitExpr::one(),
             },
         }
     }

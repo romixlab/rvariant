@@ -37,7 +37,7 @@ Surrounding whitespace is ignored (except for `Str`); an empty input gives `Erro
 | DateTime | `2024-01-02T03:04:05+01:00` (RFC 3339) | chrono `Display`, RFC 2822, no offset = UTC, date only = midnight UTC |
 | Instant | `1.5 ms` | `1500000`, `1.5ms`, `s` / `ms` / `us` / `µs` / `ns` |
 | Money | `12.34 EUR` | `EUR 12.34`, `1,234.56`, `12,5` (decimal comma), `12` |
-| Tolerance | `±5%`, `-10%/+20%` | `+/-5%`, `5%`, `+20%, -10%` |
+| Tolerance | `±5%`, `-10%/+20%`, `±0.25pF`, `±50ppm/°C` | `+/-5%`, `5%`, `+20%, -10%`, `± 0.25 pF` |
 
 ## Conversions
 

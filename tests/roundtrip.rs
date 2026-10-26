@@ -6,7 +6,7 @@
 //!   and number types are normalized to I64 / F64;
 //! * `Str` is always returned verbatim.
 use chrono::{NaiveDate, NaiveTime, TimeZone, Utc};
-use rvariant::si_dynamic::{BaseUnit, Prefix, Unit};
+use rvariant::si_dynamic::{BaseUnit, Prefix, Unit, UnitExpr};
 use rvariant::*;
 
 fn samples() -> Vec<Variant> {
@@ -119,21 +119,35 @@ fn samples() -> Vec<Variant> {
         Variant::money("BTC", 18, i64::MIN),
         Variant::Tolerance {
             min: Number::F32((-5.0).into()),
-            min_percent: true,
+            min_unit: percent(),
             max: Number::F32(5.0.into()),
-            max_percent: true,
+            max_unit: percent(),
         },
         Variant::Tolerance {
             min: Number::I32(-10),
-            min_percent: true,
+            min_unit: percent(),
             max: Number::I32(20),
-            max_percent: true,
+            max_unit: percent(),
         },
         Variant::Tolerance {
             min: Number::F64((-0.1).into()),
-            min_percent: false,
+            min_unit: UnitExpr::one(),
             max: Number::F64(0.2.into()),
-            max_percent: true,
+            max_unit: percent(),
+        },
+        Variant::Tolerance {
+            min: Number::F32((-0.25).into()),
+            min_unit: Unit::new(Prefix::Pico, BaseUnit::Farad, 1).into(),
+            max: Number::F32(0.25.into()),
+            max_unit: Unit::new(Prefix::Pico, BaseUnit::Farad, 1).into(),
+        },
+        Variant::Tolerance {
+            min: Number::I32(-50),
+            min_unit: UnitExpr::from(Unit::new(Prefix::Micro, BaseUnit::Ratio, 1))
+                / UnitExpr::from(BaseUnit::DegreeCelsius),
+            max: Number::I32(50),
+            max_unit: UnitExpr::from(Unit::new(Prefix::Micro, BaseUnit::Ratio, 1))
+                / UnitExpr::from(BaseUnit::DegreeCelsius),
         },
     ]
 }
@@ -190,4 +204,8 @@ fn serde_json_roundtrip() {
         let json = serde_json::to_string(&ty).unwrap();
         assert_eq!(serde_json::from_str::<VariantTy>(&json).unwrap(), ty);
     }
+}
+
+fn percent() -> UnitExpr {
+    Unit::new(Prefix::Centi, BaseUnit::Ratio, 1).into()
 }

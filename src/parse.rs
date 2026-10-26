@@ -4,7 +4,7 @@ use crate::literal::parse_literal;
 use crate::si::parse_si;
 use crate::{Error, NanoSeconds, Number, NumberTy, Variant, VariantTy};
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
-use si_dynamic::UnitExpr;
+use si_dynamic::{Quantity, UnitExpr};
 
 const DATE_FORMATS: &[&str] = &["%Y-%m-%d", "%Y/%m/%d", "%d.%m.%Y"];
 const TIME_FORMATS: &[&str] = &["%H:%M:%S%.f", "%H:%M"];
@@ -440,54 +440,72 @@ fn parse_tolerance(
     ty: &VariantTy,
 ) -> Result<Variant, Error> {
     non_empty(s)?;
-    let part = |p: &str| -> Result<(Number, bool, String), Error> {
+    // One side: a signed number with an optional unit (`+20%`, `0.25pF`, `50ppm/°C`, `5`).
+    let part = |p: &str| -> Result<(Number, UnitExpr), Error> {
         let p = p.trim();
-        let (num, is_percent) = match p.strip_suffix('%') {
-            Some(n) => (n.trim(), true),
-            None => (p, false),
+        let (sign, rest) = match p.strip_prefix(['-', '\u{2212}']) {
+            Some(rest) => ("-", rest),
+            None => ("", p.strip_prefix('+').unwrap_or(p)),
+        };
+        let rest = rest.trim();
+        let (num, unit) = match Number::try_from_str(rest, number_ty) {
+            Ok(_) => (rest.to_string(), UnitExpr::one()),
+            Err(e @ (Error::Lossy { .. } | Error::OutOfRange { .. })) => return Err(e),
+            Err(_) => {
+                let q =
+                    Quantity::parse(rest).map_err(|e| Error::parse(input, ty, e.to_string()))?;
+                if q.number.starts_with(['-', '+']) {
+                    return Err(Error::parse(input, ty, "two signs on one side"));
+                }
+                (q.number, q.unit)
+            }
         };
         Ok((
-            Number::try_from_str(num, number_ty)?,
-            is_percent,
-            num.to_string(),
+            Number::try_from_str(format!("{sign}{num}"), number_ty)?,
+            unit,
         ))
     };
     let symmetric = ["±", "+/-", "+-"]
         .iter()
         .find_map(|prefix| s.strip_prefix(prefix));
-    let parts: Vec<&str> = s.split(['/', ',']).collect();
-    let ((min, min_percent), (max, max_percent)) = match (symmetric, parts.as_slice()) {
-        (Some(rest), _) | (None, &[rest]) => {
-            let (max, is_percent, num) = part(rest)?;
-            let num = num.trim_start_matches('+');
-            let min = if num.starts_with(['-', '\u{2212}']) {
+    let ((min, min_unit), (max, max_unit)) = match (symmetric, split_tolerance(s)) {
+        (Some(_), _) | (None, None) => {
+            let rest = symmetric.unwrap_or(s);
+            if rest.trim_start().starts_with(['-', '\u{2212}']) {
                 return Err(Error::parse(input, ty, "expected ±X with non-negative X"));
-            } else {
-                Number::try_from_str(format!("-{num}"), number_ty)?
-            };
-            ((min, is_percent), (max, is_percent))
-        }
-        (None, &[a, b]) => {
-            let (a, a_pct, _) = part(a)?;
-            let (b, b_pct, _) = part(b)?;
-            if a.cmp_value(&b).is_le() {
-                ((a, a_pct), (b, b_pct))
-            } else {
-                ((b, b_pct), (a, a_pct))
             }
+            let (max, unit) = part(rest)?;
+            let (min, _) = part(&format!("-{}", rest.trim().trim_start_matches('+')))?;
+            ((min, unit.clone()), (max, unit))
         }
-        _ => {
-            return Err(Error::parse(
-                input,
-                ty,
-                "expected ±X[%] or MIN[%]/MAX[%], e.g. -10%/+20%",
-            ));
+        (None, Some((a, b))) => {
+            let a = part(a)?;
+            let b = part(b)?;
+            if a.0.cmp_value(&b.0).is_le() {
+                (a, b)
+            } else {
+                (b, a)
+            }
         }
     };
     Ok(Variant::Tolerance {
         min,
-        min_percent,
+        min_unit,
         max,
-        max_percent,
+        max_unit,
+    })
+}
+
+/// The two sides of an asymmetric tolerance: split at `,`, else at a `/` followed by a signed or bare
+/// number (`-10%/+20%`), so the `/` inside a unit (`50ppm/°C`) stays.
+fn split_tolerance(s: &str) -> Option<(&str, &str)> {
+    if let Some(split) = s.split_once(',') {
+        return Some(split);
+    }
+    s.match_indices('/').find_map(|(i, _)| {
+        let after = s[i + 1..].trim_start();
+        after
+            .starts_with(|c: char| c.is_ascii_digit() || "+-\u{2212}.".contains(c))
+            .then(|| (&s[..i], &s[i + 1..]))
     })
 }

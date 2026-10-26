@@ -136,11 +136,22 @@ fn golden_values() -> Vec<(Variant, &'static str)> {
         (
             Variant::Tolerance {
                 min: Number::F64((-5.0).into()),
-                min_percent: true,
+                min_unit: Unit::new(Prefix::Centi, BaseUnit::Ratio, 1).into(),
                 max: Number::F64(5.0.into()),
-                max_percent: true,
+                max_unit: Unit::new(Prefix::Centi, BaseUnit::Ratio, 1).into(),
             },
-            r#"{"Tolerance":{"min":{"F64":-5.0},"min_percent":true,"max":{"F64":5.0},"max_percent":true}}"#,
+            r#"{"Tolerance":{"min":{"F64":-5.0},"min_unit":{"Unit":{"prefix":"Centi","base":"Ratio","exp":1}},"max":{"F64":5.0},"max_unit":{"Unit":{"prefix":"Centi","base":"Ratio","exp":1}}}}"#,
+        ),
+        (
+            Variant::Tolerance {
+                min: Number::F64((-50.0).into()),
+                min_unit: UnitExpr::from(Unit::new(Prefix::Micro, BaseUnit::Ratio, 1))
+                    / UnitExpr::from(BaseUnit::DegreeCelsius),
+                max: Number::F64(50.0.into()),
+                max_unit: UnitExpr::from(Unit::new(Prefix::Micro, BaseUnit::Ratio, 1))
+                    / UnitExpr::from(BaseUnit::DegreeCelsius),
+            },
+            r#"{"Tolerance":{"min":{"F64":-50.0},"min_unit":{"Div":[{"Unit":{"prefix":"Micro","base":"Ratio","exp":1}},{"Unit":{"prefix":"Unit","base":"DegreeCelsius","exp":1}}]},"max":{"F64":50.0},"max_unit":{"Div":[{"Unit":{"prefix":"Micro","base":"Ratio","exp":1}},{"Unit":{"prefix":"Unit","base":"DegreeCelsius","exp":1}}]}}}"#,
         ),
     ]
 }

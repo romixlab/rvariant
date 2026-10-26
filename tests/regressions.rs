@@ -482,9 +482,9 @@ fn tolerance() {
         sym,
         Variant::Tolerance {
             min: Number::F32((-5.0).into()),
-            min_percent: true,
+            min_unit: percent(),
             max: Number::F32(5.0.into()),
-            max_percent: true
+            max_unit: percent(),
         }
     );
     assert_eq!(sym.to_string(), "±5%");
@@ -494,6 +494,48 @@ fn tolerance() {
     assert_eq!(asym.to_string(), "-10%/+20%");
     assert_eq!(Variant::try_from_str("+20%, -10%", &ty), Ok(asym));
     assert!(Variant::try_from_str("±5%", &VariantTy::Tolerance(NumberTy::U8)).is_err());
+}
+
+fn percent() -> UnitExpr {
+    Unit::new(Prefix::Centi, BaseUnit::Ratio, 1).into()
+}
+
+#[test]
+fn tolerance_with_units() {
+    let ty = VariantTy::Tolerance(NumberTy::F64);
+    let parse = |s: &str| Variant::try_from_str(s, &ty).unwrap();
+    let tol = |min: f64, min_unit: UnitExpr, max: f64, max_unit: UnitExpr| Variant::Tolerance {
+        min: Number::F64(min.into()),
+        min_unit,
+        max: Number::F64(max.into()),
+        max_unit,
+    };
+    let pf: UnitExpr = Unit::new(Prefix::Pico, BaseUnit::Farad, 1).into();
+    let v = parse("±0.25pF");
+    assert_eq!(v, tol(-0.25, pf.clone(), 0.25, pf));
+    assert_eq!(v.to_string(), "±0.25pF");
+    assert_eq!(parse("± 0.25 pF"), v);
+
+    let ppm_per_c = UnitExpr::from(Unit::new(Prefix::Micro, BaseUnit::Ratio, 1))
+        / UnitExpr::from(BaseUnit::DegreeCelsius);
+    let v = parse("±50ppm/°C");
+    assert_eq!(v, tol(-50.0, ppm_per_c.clone(), 50.0, ppm_per_c));
+    assert_eq!(v.to_string(), "±50ppm/°C");
+
+    let v = parse("-20%, +80%");
+    assert_eq!(v, tol(-20.0, percent(), 80.0, percent()));
+    assert_eq!(v.to_string(), "-20%/+80%");
+    assert_eq!(parse("-20%/+80%"), v);
+
+    let v = parse("±1%");
+    assert_eq!(v, tol(-1.0, percent(), 1.0, percent()));
+
+    // a bare number is absolute, in the nominal's unit
+    let v = parse("±0.1");
+    assert_eq!(v, tol(-0.1, UnitExpr::one(), 0.1, UnitExpr::one()));
+    assert_eq!(v.to_string(), "±0.1");
+    assert!(Variant::try_from_str("±-5%", &ty).is_err());
+    assert!(Variant::try_from_str("±5 furlongs/", &ty).is_err());
 }
 
 #[test]

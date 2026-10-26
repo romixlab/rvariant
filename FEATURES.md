@@ -56,6 +56,11 @@ the code, the README, the changelog and the test suites; all 45 tests pass and c
 - ✅ **PARSE-8 Dates and times**: ISO, `2024/01/02`, `02.01.2024`, RFC 3339 / 2822, no offset = UTC.
 - ✅ **PARSE-9 Instant** with `s` / `ms` / `us` / `µs` / `ns`; **Binary** hex in several spellings; **List / Map**
   JSON-like literals; **Tolerance** `±5%`, `-10%/+20%`.
+- ✅ **PARSE-11 Tolerance with units** (`src/parse.rs` `parse_tolerance`, tests `tolerance_with_units`,
+  `tolerances_give_bounds`): each side carries a `UnitExpr` (`min_unit`, `max_unit`) in place of a percent flag:
+  `±0.25pF`, `±50ppm/°C`, `-20%, +80%`, `±1%`; a bare number is absolute (`UnitExpr::one()`). Sides split at `,`
+  or at a `/` before a number, so the `/` of a unit stays. `bounds_base_f64` goes through both units when they
+  convert into each other (`±5%` → ±0.05, `-50ppm/+1%` works, `%` against a bare number or `pF` is `None`).
 - 📋 **PARSE-10 Exponents in resistor notation**: inherits si_dynamic RES-2 (`1e3` as a resistance fails). Check
   once si_dynamic is fixed and add a regression test.
 
@@ -83,7 +88,7 @@ the code, the README, the changelog and the test suites; all 45 tests pass and c
   primitives, strings, chrono types, `Map`, `Vec`, `Option<T>`.
 - ✅ **CONV-7 Values in coherent SI** (0.4, `src/convert.rs`, `src/si.rs` `si_f64`, `tests/base_values.rs`):
   `Variant::num_base_f64()` for scalars (`Number`, `SI`, a one-element `List`) and `bounds_base_f64()` for
-  `SIRange`, `Tolerance` (both sides percent or both absolute) and the span of a `List`; 13.7 kΩ → 13700,
+  `SIRange`, `Tolerance` (through both sides' units, PARSE-11) and the span of a `List`; 13.7 kΩ → 13700,
   100 mm² → 1e-4, 10 g → 0.01 (kg), 50 ppm → 5e-5, 10 V/us → 1e7, through the unit's `Scale` (si_dynamic 0.3);
   °C stays °C (an offset), an unknown word stays in its unit without prefix. Shifted in decimal when the scale is
   a power of ten, so the result is the nearest f64 of the written value (no f32 noise). For the `num` / `num_lo` /
