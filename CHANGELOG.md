@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-26
+
 ### Fixed
 
 - `si_dynamic` is a normal registry dependency instead of a bare `path`, so `rvariant` builds as a git dependency (a path outside the repo isn't followed from a git checkout); `[patch.crates-io]` keeps same-checkout builds on the local `../si_dynamic` (PRJ-4).
