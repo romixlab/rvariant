@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-26
+
 ### Added
 
 - Compound units on si_dynamic 0.3: `50 ppm/°C`, `10 V/us` parse into SI values, `50ppm` parses (was "expected ppm, found ppm") (PARSE-4).
