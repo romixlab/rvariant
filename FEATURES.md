@@ -79,6 +79,11 @@ the code, the README, the changelog and the test suites; all 45 tests pass and c
 - ✅ **CONV-5 Accessors and `From` / `TryFrom`**: `as_i8` … `as_u128`, `as_f32`, `as_f64`, `as_bool`, `as_date`,
   `as_instant`, `as_bytes`, `as_list`, `as_map`, `as_enum_selected`, `as_non_empty_string`, ...; `From` for
   primitives, strings, chrono types, `Map`, `Vec`, `Option<T>`.
+- ✅ **CONV-7 Values in the unit without prefix** (0.4, `src/convert.rs`, `tests/base_values.rs`):
+  `Variant::num_base_f64()` for scalars (`Number`, `SI`, a one-element `List`) and `bounds_base_f64()` for
+  `SIRange`, `Tolerance` (both sides percent or both absolute) and the span of a `List`; 13.7 kΩ → 13700,
+  100 mm² → 1e-4, °C stays °C, mass in kg. Shifted in decimal, so the result is the nearest f64 of the written
+  value (no f32 noise). For the `num` / `num_lo` / `num_hi` search columns of mx3's parameter facts.
 - 💡 **CONV-6 SI conversion between derived units** (`V/A` → `Ω`): needs si_dynamic EXPR-2.
 
 ## Serialization (`SER`)

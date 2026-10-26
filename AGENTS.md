@@ -52,7 +52,8 @@ One crate, edition 2024.
 - `src/seed.rs` — `VariantSeed`: load a stored value and restore it against its `VariantTy` (feature `serde`).
 - `src/script.rs` — rhai expressions over `Variant` (feature `rhai`).
 - `tests/regressions.rs` (one test per fixed bug), `tests/roundtrip.rs` (display → parse), `tests/serde.rs`
-  (golden JSON of every kind: the stored format), `tests/script.rs`.
+  (golden JSON of every kind: the stored format), `tests/base_values.rs` (values without prefix),
+  `tests/script.rs`.
 
 si_dynamic (`../si_dynamic`, taken by path) does the unit parsing. Fix unit bugs there, with its own FEATURES.md
 and CHANGELOG.md, rather than working around them here. egui_tabular and mx3 depend on this crate: after an API or

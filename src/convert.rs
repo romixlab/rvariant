@@ -1,6 +1,6 @@
 use crate::decimal::{format_decimal, parse_decimal_scaled};
 use crate::parse::match_enum_variant;
-use crate::si::{base_matches, rescale, shift_number, unit_exp10};
+use crate::si::{base_f64, base_matches, rescale, shift_number, unit_exp10};
 use crate::{Error, F32, F64, Map, NanoSeconds, Number, NumberTy, Variant, VariantTy};
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveTime, Utc};
 use indexmap::IndexMap;
@@ -401,6 +401,66 @@ impl Variant {
                 },
             )),
         }
+    }
+
+    /// The value as one number in its unit without prefix, for search columns and comparisons:
+    /// 13.7 kΩ gives 13700 (Ω), 100 mm² gives 0.0001 (m²), -40 °C gives -40 (°C stays °C, no
+    /// kelvin), mass in kg. A `Number` gives itself, a `List` of exactly one value that value's.
+    /// `None` for ranges and tolerances (see [`Variant::bounds_base_f64`]), for kinds without a
+    /// number, and for NaN.
+    ///
+    /// The unit is the value's own: a value parsed for a definition has the definition's unit (up to
+    /// the prefix); checking that a loaded value still matches its definition is the caller's job.
+    pub fn num_base_f64(&self) -> Option<f64> {
+        let num = match self {
+            Variant::Number(n) => base_f64(*n, 0),
+            Variant::SI { value, unit } => base_f64(*value, unit_exp10(unit)),
+            Variant::List(list) => match list.as_slice() {
+                [one] => return one.num_base_f64(),
+                _ => return None,
+            },
+            _ => return None,
+        };
+        (!num.is_nan()).then_some(num)
+    }
+
+    /// The lowest and highest value in the unit without prefix (as in [`Variant::num_base_f64`]):
+    /// an `SIRange` gives its ends (inclusive or not), a `Tolerance` its deviations (in percent, or
+    /// absolute when both are absolute; `None` when one is in percent and the other not), a `List`
+    /// the span of its elements (scalars and ranges). `None` for scalars (they have
+    /// [`Variant::num_base_f64`]), an empty list, a list with an element without a number, kinds
+    /// without a number, and NaN.
+    pub fn bounds_base_f64(&self) -> Option<(f64, f64)> {
+        let (lo, hi) = match self {
+            Variant::SIRange {
+                start, end, unit, ..
+            } => {
+                let exp10 = unit_exp10(unit);
+                (base_f64(*start, exp10), base_f64(*end, exp10))
+            }
+            Variant::Tolerance {
+                min,
+                min_percent,
+                max,
+                max_percent,
+            } if min_percent == max_percent => (base_f64(*min, 0), base_f64(*max, 0)),
+            Variant::List(list) => {
+                let mut span: Option<(f64, f64)> = None;
+                for v in list {
+                    let (lo, hi) = match v.num_base_f64() {
+                        Some(n) => (n, n),
+                        None => v.bounds_base_f64()?,
+                    };
+                    span = Some(match span {
+                        Some((a, b)) => (a.min(lo), b.max(hi)),
+                        None => (lo, hi),
+                    });
+                }
+                span?
+            }
+            _ => return None,
+        };
+        (!lo.is_nan() && !hi.is_nan()).then_some((lo, hi))
     }
 
     /// Value of an SI quantity converted to the base unit without prefix (e.g. 4.7 kΩ -> 4700).

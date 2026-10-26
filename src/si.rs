@@ -120,6 +120,19 @@ fn shift_str(number: &str, exp10: i32, to: NumberTy, lossy: bool) -> Result<Numb
     }
 }
 
+/// `value`, given in a unit `10^exp10` times its base unit, in the base unit as `f64`. Shifted as text,
+/// so 13.7 kΩ gives exactly 13700 and an `F32` keeps its decimal digits (0.1, not 0.10000000149).
+pub(crate) fn base_f64(value: Number, exp10: i32) -> f64 {
+    let lossy = value.to_f64_lossy();
+    if value.is_float() && !lossy.is_finite() {
+        return lossy;
+    }
+    match shift_str(&value.to_string(), exp10, NumberTy::F64, true) {
+        Ok(Number::F64(f)) => f.0,
+        _ => lossy * 10f64.powi(exp10),
+    }
+}
+
 /// Parse SI quantity and express it in `unit` with `number_ty`.
 ///
 /// Accepts: plain number (interpreted in `unit`), `4.7kΩ`, `4.7 kOhm`, `4k7` (resistance only),

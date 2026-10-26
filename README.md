@@ -57,7 +57,9 @@ Surrounding whitespace is ignored (except for `Str`); an empty input gives `Erro
 ## SI values
 
 `Variant::SI { value, unit }` stores `value` expressed in `unit`, including its prefix:
-`SI { value: 4.7, unit: kΩ }` is 4700 Ω. `as_base_unit` returns the value without prefix.
+`SI { value: 4.7, unit: kΩ }` is 4700 Ω. `as_base_unit` returns the value without prefix;
+`num_base_f64` / `bounds_base_f64` give a value, or the ends of a range, tolerance or list, as `f64`
+in the unit without prefix (`°C` stays `°C`), for search and comparison.
 
 ## Features
 

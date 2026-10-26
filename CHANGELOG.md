@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - `Variant::restore(ty)` and `VariantSeed`, a `DeserializeSeed` that loads a value and restores it against its type (SER-3).
+- `Variant::num_base_f64()` and `Variant::bounds_base_f64()`: a value, or a range's, tolerance's or list's lowest and highest value, as `f64` in its unit without prefix (13.7 kΩ → 13700, °C stays °C) (CONV-7).
 - Golden JSON tests for every `Variant` and `VariantTy` kind, `tests/serde.rs` (SER-2).
 
 ## [0.3.2] - 2026-10-22
