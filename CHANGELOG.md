@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-10-27
+
 ### Added
 
 - `Variant::parse_vendor(text, &ty)` reads distributor and BOM text (`13.7 kOhms`, `4u7`, `0.063W, 1/16W`, `2pF @ 0V, 1MHz`, `-40°C ~ 85°C (TA)`, `4.7ÂµF`) into a `VendorValue` with the value, the conditions after `@` and `VendorWarning`s for what it set aside; strict about units, bounded to `MAX_VENDOR_LEN` bytes, no panics (PARSE-12).
