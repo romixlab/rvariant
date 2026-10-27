@@ -7,9 +7,13 @@
 //! * [`Display`](std::fmt::Display) - human-readable form, which [`Variant::try_from_str`] parses back
 //!   (`parse(v.to_string(), v.ty()) == v` for all kinds, see `tests/roundtrip.rs` for the exact
 //!   guarantees);
+//! * [`Variant::parse_vendor`] - read vendor text (`13.7 kOhms`, `0.063W, 1/16W`, `2pF @ 0V, 1MHz`) with its
+//!   conditions and warnings;
 //! * typed accessors (`as_u32`, `as_date_time`, ...) and `From` / `TryFrom` impls.
 
 mod convert;
+#[cfg(feature = "corpus")]
+pub mod corpus;
 mod decimal;
 mod display;
 mod error;
@@ -21,12 +25,14 @@ mod parse;
 mod seed;
 mod si;
 pub mod util;
+mod vendor;
 
 pub use crate::error::Error;
 pub use crate::map::Map;
 pub use crate::number::{F32, F64, Number, NumberTy};
 #[cfg(feature = "serde")]
 pub use crate::seed::VariantSeed;
+pub use crate::vendor::{MAX_VENDOR_LEN, VendorValue, VendorWarning};
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveTime};
 pub use si_dynamic;
 use si_dynamic::UnitExpr;

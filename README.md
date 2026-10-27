@@ -61,9 +61,25 @@ Surrounding whitespace is ignored (except for `Str`); an empty input gives `Erro
 `num_base_f64` / `bounds_base_f64` give a value, or the ends of a range, tolerance or list, as `f64`
 in the unit without prefix (`°C` stays `°C`), for search and comparison.
 
+## Vendor text
+
+`Variant::parse_vendor(text, &ty)` reads what distributors and BOMs write (`13.7 kOhms`, `4u7`, `0.063W, 1/16W`,
+`2pF @ 0V, 1MHz`, `-40°C ~ 85°C (TA)`, `4.7ÂµF`) and returns a `VendorValue`: the value in the type's unit (a
+`List` when the text names several different values, one value when they are spellings of the same one), the
+conditions after `@`, and warnings for what it set aside (`note:TA`, `trailing:Max`, `mojibake`, `decimal_comma`,
+...). The value itself is still read strictly: another dimension, a bare word or `2000 Hrs` for a time is an error.
+The text is treated as untrusted: no panics, at most `MAX_VENDOR_LEN` bytes, fuzzed (`just fuzz`).
+
+`tests/corpus/vendor.toml` holds the cases it must pass: distinct Digi-Key parameter texts, better_erc's BOM value
+tests and a few synthetic spellings, each with its type and expected value in the unit without prefix. With the
+`corpus` feature the same cases load through `rvariant::corpus`, so mx3 and better_erc test their parsers against
+the same contract.
+
 ## Features
 
 * `serde` - Serialize / Deserialize for all types. `Map` is serialized as a sequence of
   `[key, value]` pairs so that non-string keys work in JSON. `Enum` / `MultiSelectionEnum` values
   store only their selection; load them with `VariantSeed(&ty)` or call `Variant::restore(ty)` to
   get the name and variants back from the type. `tests/serde.rs` pins the JSON of every kind.
+* `corpus` - `rvariant::corpus`: the vendor text corpus (`tests/corpus/vendor.toml`) with `Case::ty` and
+  `Case::check`, for the tests of crates that parse the same text.

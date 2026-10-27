@@ -61,6 +61,22 @@ the code, the README, the changelog and the test suites; all 45 tests pass and c
   `±0.25pF`, `±50ppm/°C`, `-20%, +80%`, `±1%`; a bare number is absolute (`UnitExpr::one()`). Sides split at `,`
   or at a `/` before a number, so the `/` of a unit stays. `bounds_base_f64` goes through both units when they
   convert into each other (`±5%` → ±0.05, `-50ppm/+1%` works, `%` against a bare number or `pF` is `None`).
+- ✅ **PARSE-12 Vendor text** (`src/vendor.rs`, `Variant::parse_vendor`, tests `tests/vendor.rs`): reads
+  distributor and BOM text into a `VendorValue { value, cond, warnings }`: mojibake repaired (`ÂµF`, `Â°C`,
+  `Î©`), lists (`7.8µH, 1.6µH` as a `List`; items within 1 % are one value, a written fraction wins:
+  `0.063W, 1/16W` is 1/16 W), conditions after `@` (`2pF @ 0V, 1MHz`), parentheses as another spelling
+  (`0.039" (1.00mm)`, `2000V (2kV)`) or as `note:` warnings (`(TJ)`), up to six trailing words as `trailing:`
+  warnings (`48mOhm Max`) but never leaving a bare number (`2000 Hrs` is no time), resistor notation for every
+  unit (`4u7`, `3V3`, `2R2`), a prefix alone (`10k`, `16M`), fractions (`1/4W`), decimal comma and thousands
+  separators, ranges with `~` and lists of them (one value is `scalar_for_range`), tolerances with a bare side
+  taking the other side's unit (`0/ +300ppm/°C`), enums from the first matching item. Strict where it counts:
+  another dimension, a word without a number, an integer column for `1/3` are errors. Untrusted input: at most
+  `MAX_VENDOR_LEN` (512) bytes, bounded work, no panics (fuzz target `fuzz/fuzz_targets/parse_vendor.rs`, PRJ-3).
+- ✅ **PARSE-13 Shared vendor corpus** (`tests/corpus/vendor.toml`, 788 cases; harness `tests/vendor_corpus.rs`;
+  feature `corpus`, `src/corpus.rs`): 618 distinct Digi-Key parameter texts of mx3's lab database (27 Oct 2026,
+  parameter text only) across 54 definitions, better_erc's erc_model value.rs tests and synthetic spellings, each
+  with type, unit, expected value, list, bounds, enum selection, conditions and warnings in the unit without
+  prefix. `rvariant::corpus::vendor_cases()` and `Case::check` give mx3 (PRM-12) and better_erc the same contract.
 - 📋 **PARSE-10 Exponents in resistor notation**: inherits si_dynamic RES-2 (`1e3` as a resistance fails). Check
   once si_dynamic is fixed and add a regression test.
 
@@ -128,8 +144,9 @@ the code, the README, the changelog and the test suites; all 45 tests pass and c
   unreleased; egui_tabular already uses it by path.
 - 📋 **PRJ-2 Release 0.3.0 / 0.4.0**: decide whether rhai (SCR-1) ships in the same release, then publish so
   egui_tabular and mx3 can depend on a crates.io version.
-- 💡 **PRJ-3 Fuzzing** `try_from_str` and the round-trip guarantee (`cargo fuzz`), since it parses user and CSV
-  input.
+- 🚧 **PRJ-3 Fuzzing** (`fuzz/`, `just fuzz`): `parse_vendor` has a cargo fuzz target over every kind of type it
+  reads (no panic, no slow input; 15 min with the corpus as seeds found nothing). Still missing: `try_from_str`
+  and the round-trip guarantee, since they parse user and CSV input.
 - ✅ **PRJ-4 Builds as a git dependency**: `si_dynamic` is a normal registry dependency (`version = "0.3"`,
   `default-features = false`) plus `[patch.crates-io] si_dynamic = { path = "../si_dynamic" }` for local,
   same-checkout builds; a consumer that takes `rvariant` by git (mx3, until publish) patches `si_dynamic` itself,

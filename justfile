@@ -19,6 +19,10 @@ lint:
     cargo clippy --all-features --all-targets -- -D warnings
     cargo fmt --check
 
+# Fuzz Variant::parse_vendor for SECS seconds (cargo-fuzz on nightly), seeded from tests/corpus/vendor.toml
+fuzz secs="300":
+    cd fuzz && cargo +nightly fuzz run parse_vendor -- -max_total_time={{secs}} -timeout=2 -max_len=600
+
 # rvariant is a library with no binary, so there is nothing to put on PATH: install is a build check in the deploy profile
 install:
     cargo build --profile deploy --all-features

@@ -19,3 +19,9 @@ Cargo.lock
 /target
 
 .DS_Store
+
+# cargo fuzz (fuzz/): build output, the generated corpus, crashes
+/fuzz/target
+/fuzz/corpus
+/fuzz/artifacts
+/fuzz/coverage

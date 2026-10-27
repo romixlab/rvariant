@@ -433,7 +433,7 @@ fn parse_si_range(
     })
 }
 
-fn parse_tolerance(
+pub(crate) fn parse_tolerance(
     input: &str,
     s: &str,
     number_ty: NumberTy,

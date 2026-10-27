@@ -1,0 +1,26 @@
+[package]
+name = "rvariant-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+rvariant = { path = ".." }
+
+# Not a member of a workspace above; si_dynamic from the same checkout, as for rvariant itself
+[workspace]
+members = ["."]
+
+[patch.crates-io]
+si_dynamic = { path = "../../si_dynamic" }
+
+[[bin]]
+name = "parse_vendor"
+path = "fuzz_targets/parse_vendor.rs"
+test = false
+doc = false
+bench = false

@@ -52,9 +52,13 @@ One crate, edition 2024.
 - `src/decimal.rs` — exact decimal handling for `Money`. `src/map.rs` — `Map` and its serde format.
 - `src/seed.rs` — `VariantSeed`: load a stored value and restore it against its `VariantTy` (feature `serde`).
 - `src/script.rs` — rhai expressions over `Variant` (feature `rhai`).
+- `src/vendor.rs` — `Variant::parse_vendor` for distributor and BOM text (untrusted input: no panics, bounded
+  work); `src/corpus.rs` — the shared corpus `tests/corpus/vendor.toml` as `rvariant::corpus` (feature `corpus`).
+  A new vendor spelling gets a case in the corpus; mx3 and better_erc test against the same file.
 - `tests/regressions.rs` (one test per fixed bug), `tests/roundtrip.rs` (display → parse), `tests/serde.rs`
   (golden JSON of every kind: the stored format), `tests/base_values.rs` (values without prefix),
-  `tests/script.rs`.
+  `tests/script.rs`, `tests/vendor_corpus.rs` (every corpus case), `tests/vendor.rs` (limits, odd input).
+- `fuzz/` — cargo fuzz target `parse_vendor` (`just fuzz`, nightly).
 
 si_dynamic (`../si_dynamic`, taken by path) does the unit parsing. Fix unit bugs there, with its own FEATURES.md
 and CHANGELOG.md, rather than working around them here. egui_tabular and mx3 depend on this crate: after an API or

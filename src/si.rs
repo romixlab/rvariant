@@ -16,7 +16,7 @@ fn named_alias(word: &str) -> Option<BaseUnit> {
 }
 
 /// `unit` with the unknown words rvariant knows (`Vdc`, `Ohms`) replaced by their unit.
-fn with_aliases(unit: &UnitExpr) -> UnitExpr {
+pub(crate) fn with_aliases(unit: &UnitExpr) -> UnitExpr {
     match unit {
         UnitExpr::Unit(u) => match &u.base {
             BaseUnit::Unknown(word) => match named_alias(word) {
