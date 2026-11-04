@@ -11,12 +11,13 @@ cargo-fuzz = true
 libfuzzer-sys = "0.4"
 rvariant = { path = ".." }
 
-# Not a member of a workspace above; si_dynamic from the same checkout, as for rvariant itself
+# Not a member of a workspace above; si_dynamic by git as for rvariant itself (0.3 is not on crates.io)
 [workspace]
 members = ["."]
 
 [patch.crates-io]
-si_dynamic = { path = "../../si_dynamic" }
+si_dynamic = { git = "https://github.com/romixlab/si_dynamic" }
+# si_dynamic = { path = "../../si_dynamic" }
 
 [[bin]]
 name = "parse_vendor"

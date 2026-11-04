@@ -5,6 +5,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- The `[patch.crates-io]` for `si_dynamic` (0.3 is not published yet) in `Cargo.toml` and `fuzz/Cargo.toml` points at the git repository (no tag, Cargo.lock pins the commit) instead of the sibling path; the path stays as a comment for local work
+
 ## [0.5.2] - 2026-10-27
 
 ### Added

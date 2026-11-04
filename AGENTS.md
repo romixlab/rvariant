@@ -60,7 +60,7 @@ One crate, edition 2024.
   `tests/script.rs`, `tests/vendor_corpus.rs` (every corpus case), `tests/vendor.rs` (limits, odd input).
 - `fuzz/` — cargo fuzz target `parse_vendor` (`just fuzz`, nightly).
 
-si_dynamic (`../si_dynamic`, taken by path) does the unit parsing. Fix unit bugs there, with its own FEATURES.md
+si_dynamic (taken by git through `[patch.crates-io]`, no tag; the sibling `../si_dynamic` path is left as a comment beside it) does the unit parsing. Fix unit bugs there, with its own FEATURES.md
 and CHANGELOG.md, rather than working around them here. egui_tabular and mx3 depend on this crate: after an API or
 behaviour change, build them and say what they need to follow.
 
