@@ -73,10 +73,11 @@ the code, the README, the changelog and the test suites; all 45 tests pass and c
   another dimension, a word without a number, an integer column for `1/3` are errors. Untrusted input: at most
   `MAX_VENDOR_LEN` (512) bytes, bounded work, no panics (fuzz target `fuzz/fuzz_targets/parse_vendor.rs`, PRJ-3).
 - ✅ **PARSE-13 Shared vendor corpus** (`tests/corpus/vendor.toml`, 788 cases; harness `tests/vendor_corpus.rs`;
-  feature `corpus`, `src/corpus.rs`): 618 distinct Digi-Key parameter texts of mx3's lab database (27 Oct 2026,
-  parameter text only) across 54 definitions, better_erc's erc_model value.rs tests and synthetic spellings, each
-  with type, unit, expected value, list, bounds, enum selection, conditions and warnings in the unit without
-  prefix. `rvariant::corpus::vendor_cases()` and `Case::check` give mx3 (PRM-12) and better_erc the same contract.
+  feature `corpus`, `src/corpus.rs`): 618 distinct Digi-Key parameter texts of an internal parts database (27 Oct
+  2026, parameter text only) across 54 definitions, better_erc's erc_model value.rs tests and synthetic spellings,
+  each with type, unit, expected value, list, bounds, enum selection, conditions and warnings in the unit without
+  prefix. `rvariant::corpus::vendor_cases()` and `Case::check` give better_erc and other internal tools the same
+  contract.
 - 📋 **PARSE-10 Exponents in resistor notation**: inherits si_dynamic RES-2 (`1e3` as a resistance fails). Check
   once si_dynamic is fixed and add a regression test.
 
@@ -108,7 +109,7 @@ the code, the README, the changelog and the test suites; all 45 tests pass and c
   100 mm² → 1e-4, 10 g → 0.01 (kg), 50 ppm → 5e-5, 10 V/us → 1e7, through the unit's `Scale` (si_dynamic 0.3);
   °C stays °C (an offset), an unknown word stays in its unit without prefix. Shifted in decimal when the scale is
   a power of ten, so the result is the nearest f64 of the written value (no f32 noise). For the `num` / `num_lo` /
-  `num_hi` search columns of mx3's parameter facts.
+  `num_hi` search columns of an internal parts database's parameter facts.
 - ✅ **CONV-6 SI conversion between derived units**: `V/A` ↔ `Ω`, `V/mA` → `kΩ` in `convert_to`, parsing,
   `sort_cmp` and `as_base_unit`, when the dimensions match and the scales are powers of ten
   (`si::shift_between`, test `si_compound_units`). Units with a `Factor` scale (registered `rpm`) don't convert
@@ -121,7 +122,8 @@ the code, the README, the changelog and the test suites; all 45 tests pass and c
   `variant_ty_json_format_is_unchanged`).
 - ✅ **SER-2 Golden JSON for every kind**: `tests/serde.rs` pins the stored JSON of one value of every `Variant`
   kind (all twelve number widths) and one type of every `VariantTy` kind, and fails when a new kind has no case.
-  mx3 stores `Variant` in parameter facts and `VariantTy` in definitions, so a change there breaks stored data.
+  An internal parts-database tool stores `Variant` in parameter facts and `VariantTy` in definitions, so a change
+  there breaks stored data.
   The SI unit is si_dynamic's `UnitExpr` (0.5: `{"Unit":{"prefix":"Kilo","base":"Ohm","exp":1}}`, compound
   units `{"Div":[..,..]}`), pinned here and in si_dynamic's `tests/golden`.
 - ✅ **SER-3 Enum values store only the selection** (0.4): `Enum` / `MultiSelectionEnum` serialize as
@@ -143,13 +145,13 @@ the code, the README, the changelog and the test suites; all 45 tests pass and c
 - ✅ **PRJ-1 Published on crates.io**: 0.2.0. 0.3.0 (strict parsing, breaking) is finished on main but
   unreleased; egui_tabular already uses it by path.
 - 📋 **PRJ-2 Release 0.3.0 / 0.4.0**: decide whether rhai (SCR-1) ships in the same release, then publish so
-  egui_tabular and mx3 can depend on a crates.io version.
+  egui_tabular and other internal tools can depend on a crates.io version.
 - 🚧 **PRJ-3 Fuzzing** (`fuzz/`, `just fuzz`): `parse_vendor` has a cargo fuzz target over every kind of type it
   reads (no panic, no slow input; 15 min with the corpus as seeds found nothing). Still missing: `try_from_str`
   and the round-trip guarantee, since they parse user and CSV input.
 - ✅ **PRJ-4 Builds as a git dependency**: `si_dynamic` is a normal registry dependency (`version = "0.3"`,
   `default-features = false`) plus `[patch.crates-io] si_dynamic = { path = "../si_dynamic" }` for local,
-  same-checkout builds; a consumer that takes `rvariant` by git (mx3, until publish) patches `si_dynamic` itself,
+  same-checkout builds; a consumer that takes `rvariant` by git (an internal tool, until publish) patches `si_dynamic` itself,
   e.g. by git tag `v0.3.0` (`Cargo.toml`).
 
 ## Dropped and superseded

@@ -298,7 +298,7 @@ fn map_json() {
 #[cfg(feature = "serde")]
 #[test]
 fn variant_ty_json_format() {
-    // mx3 stores VariantTy as JSON in the database; the unit became a UnitExpr in 0.5
+    // An internal parts-database tool stores VariantTy as JSON in the database; the unit became a UnitExpr in 0.5
     let ty = si_ty(NumberTy::F32, volt());
     assert_eq!(
         serde_json::to_string(&ty).unwrap(),

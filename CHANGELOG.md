@@ -5,6 +5,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- docs: internal references removed
+
 ## [0.5.3] - 2026-11-04
 
 ### Changed
@@ -16,7 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - `Variant::parse_vendor(text, &ty)` reads distributor and BOM text (`13.7 kOhms`, `4u7`, `0.063W, 1/16W`, `2pF @ 0V, 1MHz`, `-40°C ~ 85°C (TA)`, `4.7ÂµF`) into a `VendorValue` with the value, the conditions after `@` and `VendorWarning`s for what it set aside; strict about units, bounded to `MAX_VENDOR_LEN` bytes, no panics (PARSE-12).
-- `tests/corpus/vendor.toml`: 788 vendor text cases (distinct Digi-Key parameter texts, better_erc's value tests, synthetic spellings) with type and expected value; the `corpus` feature exposes them as `rvariant::corpus` for mx3 and better_erc tests (PARSE-13).
+- `tests/corpus/vendor.toml`: 788 vendor text cases (distinct Digi-Key parameter texts, better_erc's value tests, synthetic spellings) with type and expected value; the `corpus` feature exposes them as `rvariant::corpus` for better_erc and other internal tools' tests (PARSE-13).
 - A cargo fuzz target for `parse_vendor` (`fuzz/`, `just fuzz`) (PRJ-3).
 
 ## [0.5.1] - 2026-10-26
@@ -58,7 +62,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- `just test --changed` runs only the workspace crates changed against main and their dependents (`tpm test changed`, nextest's `rdeps()`); plain `just test` runs everything, as `just test-all` does (tpm ops#22oct-2049).
+- `just test --changed` runs only the workspace crates changed against main and their dependents (`tpm test changed` when available, nextest's `rdeps()`); plain `just test` runs everything, as `just test-all` does.
 
 ## [0.3.1] - 2026-10-22
 

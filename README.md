@@ -72,8 +72,8 @@ The text is treated as untrusted: no panics, at most `MAX_VENDOR_LEN` bytes, fuz
 
 `tests/corpus/vendor.toml` holds the cases it must pass: distinct Digi-Key parameter texts, better_erc's BOM value
 tests and a few synthetic spellings, each with its type and expected value in the unit without prefix. With the
-`corpus` feature the same cases load through `rvariant::corpus`, so mx3 and better_erc test their parsers against
-the same contract.
+`corpus` feature the same cases load through `rvariant::corpus`, so better_erc and other internal tools test their
+parsers against the same contract.
 
 ## Features
 

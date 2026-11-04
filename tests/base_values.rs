@@ -1,5 +1,5 @@
 //! `num_base_f64` / `bounds_base_f64`: values in their unit without prefix, for the search columns of
-//! mx3's parameter facts (CONV-7). Equality is exact on purpose: the shift is done in decimal.
+//! an internal parts database's parameter facts (CONV-7). Equality is exact on purpose: the shift is done in decimal.
 
 use rvariant::si_dynamic::{BaseUnit, Prefix, Unit, UnitExpr};
 use rvariant::{F64, Number, NumberTy, Variant, VariantTy};

@@ -1,6 +1,7 @@
 //! The shared vendor text corpus, `tests/corpus/vendor.toml` (feature `corpus`): vendor and BOM texts with the type
 //! they are read as and what they must give. rvariant checks [`Variant::parse_vendor`] against it
-//! (`tests/vendor_corpus.rs`); mx3 and better_erc load the same cases for their own tests, so the parsers agree.
+//! (`tests/vendor_corpus.rs`); better_erc and other internal tools load the same cases for their own tests, so the
+//! parsers agree.
 //! The file's header documents the fields.
 
 use crate::{Error, NumberTy, Variant, VariantTy, VendorValue};

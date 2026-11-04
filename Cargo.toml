@@ -10,7 +10,8 @@ exclude = ["fuzz"]
 
 [features]
 serde = ["dep:serde", "chrono/serde", "indexmap/serde"]
-# The shared vendor text corpus (`tests/corpus/vendor.toml`) and its checks, for the tests of mx3 and better_erc
+# The shared vendor text corpus (`tests/corpus/vendor.toml`) and its checks, for the tests of better_erc and other
+# internal tools
 corpus = ["serde", "dep:toml"]
 
 [dependencies]

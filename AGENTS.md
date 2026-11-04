@@ -4,7 +4,7 @@ Guidance for AI agents and contributors. Read this before changing code.
 
 rvariant is a dynamically typed value for Rust, inspired by Qt's `QVariant`: a `Variant` value plus a
 parameterized `VariantTy` type descriptor (SI unit, enum variants, currency, ...). It is the cell type of
-egui_tabular and the parameter type of mx3 (component parameters, CSV import, BOM values), so parsing, display and
+egui_tabular and the parameter type of an internal parts-database tool (component parameters, CSV import, BOM values), so parsing, display and
 conversion rules are a contract that real stored data depends on. Published on crates.io.
 
 ## FEATURES.md is the source of truth
@@ -31,12 +31,12 @@ IDs per area (`PARSE-2`, `CONV-3`, ...).
   `### Breaking changes`, `### Added`, `### Changed`, `### Fixed`, `### Removed`. Short, with the feature ID in
   parentheses.
 - Always record: a changed `Display` format, input that now parses to a different value or is now rejected, a
-  changed serde format (stored `Variant` / `VariantTy` values in mx3 and egui_tabular files must still load, or the
-  entry says how to migrate), and changed cargo features.
+  changed serde format (stored `Variant` / `VariantTy` values in egui_tabular files and other internal tools must
+  still load, or the entry says how to migrate), and changed cargo features.
 - Pure refactors and typo fixes don't need an entry.
 - On a release, rename `[Unreleased]` to the version and date and start a new empty `[Unreleased]`.
 
-The tpm repo's `/sync-repos` reads this file to log progress, so a missing entry means work nobody sees.
+Our internal tooling reads this file to log progress, so a missing entry means work nobody sees.
 
 ## Layout
 
@@ -54,15 +54,15 @@ One crate, edition 2024.
 - `src/script.rs` — rhai expressions over `Variant` (feature `rhai`).
 - `src/vendor.rs` — `Variant::parse_vendor` for distributor and BOM text (untrusted input: no panics, bounded
   work); `src/corpus.rs` — the shared corpus `tests/corpus/vendor.toml` as `rvariant::corpus` (feature `corpus`).
-  A new vendor spelling gets a case in the corpus; mx3 and better_erc test against the same file.
+  A new vendor spelling gets a case in the corpus; better_erc and other internal tools test against the same file.
 - `tests/regressions.rs` (one test per fixed bug), `tests/roundtrip.rs` (display → parse), `tests/serde.rs`
   (golden JSON of every kind: the stored format), `tests/base_values.rs` (values without prefix),
   `tests/script.rs`, `tests/vendor_corpus.rs` (every corpus case), `tests/vendor.rs` (limits, odd input).
 - `fuzz/` — cargo fuzz target `parse_vendor` (`just fuzz`, nightly).
 
 si_dynamic (taken by git through `[patch.crates-io]`, no tag; the sibling `../si_dynamic` path is left as a comment beside it) does the unit parsing. Fix unit bugs there, with its own FEATURES.md
-and CHANGELOG.md, rather than working around them here. egui_tabular and mx3 depend on this crate: after an API or
-behaviour change, build them and say what they need to follow.
+and CHANGELOG.md, rather than working around them here. egui_tabular and other internal tools depend on this crate:
+after an API or behaviour change, build them and say what they need to follow.
 
 ## Commands
 
@@ -104,9 +104,9 @@ publish; the user's tooling does that.
 
 ## Versions
 
-Branch commits don't bump the version: their CHANGELOG entries go under `## [Unreleased]`, and `tpm land` turns
-them into `## [x.y.z] - date` with the manifest bump and a `vX.Y.Z` tag in one release commit (minor for
-Added/Changed/Removed, else patch; major only when the owner says so; see the tpm repo's CLAUDE.md "Landing bumps
-the version"). A version already set in the manifest ahead of a release is landed as is.
+Branch commits don't bump the version: their CHANGELOG entries go under `## [Unreleased]`, and the release process
+turns them into `## [x.y.z] - date` with the manifest bump and a `vX.Y.Z` tag in one release commit (minor for
+Added/Changed/Removed, else patch; major only when the owner says so). A version already set in the manifest ahead
+of a release is landed as is.
 - Docs-only, CI-only and no-behaviour-change refactors need no CHANGELOG entry.
 - A CLI built from this repo would print version, git SHA and build time in `--version`; the crate itself has none.

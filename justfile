@@ -2,11 +2,11 @@
 default:
     @just --list
 
-# The tests. `just test`: all of them (test-all), the run of the `tpm land` gate. `just test --changed`: only the
-# workspace crates changed against main and the crates that depend on them (tpm test changed), what a session runs
-# before tpm work ready.
+# The tests. `just test`: all of them (test-all), the same run used before landing changes. `just test --changed`:
+# only the workspace crates changed against main and the crates that depend on them, what a session runs before
+# marking work ready. Uses `tpm test changed` when the `tpm` tool is available, otherwise runs the full workspace.
 test *flags:
-    if [ "{{flags}}" = "--changed" ]; then tpm test changed -- cargo nextest run --workspace; else {{just_executable()}} test-all {{flags}}; fi
+    if [ "{{flags}}" = "--changed" ]; then if command -v tpm >/dev/null 2>&1; then tpm test changed -- cargo nextest run --workspace; else cargo nextest run --workspace; fi; else {{just_executable()}} test-all {{flags}}; fi
 
 # Tests (nextest for the unit and integration tests, cargo test for doctests)
 test-all:

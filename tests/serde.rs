@@ -1,6 +1,6 @@
-//! Golden JSON for every `Variant` and `VariantTy` kind (SER-2). mx3 stores both as JSON (parameter
-//! facts, definition types): a change here breaks stored data and needs a CHANGELOG entry with the way
-//! to migrate.
+//! Golden JSON for every `Variant` and `VariantTy` kind (SER-2). An internal parts-database tool stores both as
+//! JSON (parameter facts, definition types): a change here breaks stored data and needs a CHANGELOG entry with the
+//! way to migrate.
 #![cfg(feature = "serde")]
 
 use chrono::{NaiveDate, NaiveTime};
@@ -156,7 +156,7 @@ fn golden_values() -> Vec<(Variant, &'static str)> {
     ]
 }
 
-/// One type of every kind with its stored JSON (the `ty` column of mx3's parameter definitions).
+/// One type of every kind with its stored JSON (the `ty` column of an internal parts database's parameter definitions).
 fn golden_types() -> Vec<(VariantTy, &'static str)> {
     vec![
         (VariantTy::Empty, r#""Empty""#),
