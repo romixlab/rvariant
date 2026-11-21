@@ -34,6 +34,7 @@ si_dynamic = { git = "https://github.com/romixlab/si_dynamic" }
 # si_dynamic = { path = "../si_dynamic" }
 
 [profile.dev]
+debug = false
 split-debuginfo = "unpacked"
 
 [profile.deploy]
